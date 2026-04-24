@@ -16,6 +16,19 @@ const userSchema = new mongoose.Schema(
     phone_verified_at: { type: Date, default: null },
     image: String,
     password: String,
+    specialization: String,
+    description: String,
+    experience: String,
+    qualification: String,
+    expertise: [
+      {
+        type: String,
+      },
+    ],
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true },
 );

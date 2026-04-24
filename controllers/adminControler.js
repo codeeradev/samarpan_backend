@@ -1,6 +1,12 @@
 const User = require("../models/user");
 const Service = require("../models/service");
+const Review = require("../models/review");
+const Short = require("../models/short");
+const Appointment = require("../models/appointment");
 const jwt = require("jsonwebtoken");
+const ROLES = require("../constants/roles");
+const permisson = require("../constants/permisson");
+const { sendMail } = require("../config/nodemailer");
 
 const ROLE_MAP = {
   1: "SUPER_ADMIN",
@@ -9,6 +15,143 @@ const ROLE_MAP = {
   4: "RECEPTIONIST",
   5: "USER",
   6: "GUEST",
+};
+
+const ALLOWED_APPOINTMENT_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "rescheduled",
+  "completed",
+  "rejected",
+  "cancelled",
+]);
+
+const normalizeText = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+const parseAppointmentDate = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const formatAppointmentDate = (value) => {
+  if (!value) {
+    return "TBD";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: process.env.MAIL_TIMEZONE || "Asia/Kolkata",
+  }).format(new Date(value));
+};
+
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const hasAppointmentPermission = (user, permissionKey) => {
+  if (!user?.permissions || !permissionKey) {
+    return false;
+  }
+
+  if (typeof user.permissions.get === "function") {
+    return Boolean(user.permissions.get(permissionKey));
+  }
+
+  return Boolean(user.permissions[permissionKey]);
+};
+
+const canViewAppointments = (user) =>
+  Boolean(
+    user &&
+      (user.roleId === ROLES.SUPER_ADMIN ||
+        user.roleId === ROLES.DOCTOR ||
+        hasAppointmentPermission(user, permisson.VIEW_APPOINTMENTS) ||
+        hasAppointmentPermission(user, permisson.MANAGE_APPOINTMENTS)),
+  );
+
+const canManageAppointments = (user, appointment) => {
+  if (!user || !appointment) {
+    return false;
+  }
+
+  if (
+    user.roleId === ROLES.SUPER_ADMIN ||
+    hasAppointmentPermission(user, permisson.MANAGE_APPOINTMENTS)
+  ) {
+    return true;
+  }
+
+  if (user.roleId === ROLES.DOCTOR) {
+    return (
+      String(appointment.doctorId || "") === String(user._id) ||
+      (!appointment.doctorId &&
+        normalizeText(appointment.doctorName).toLowerCase() ===
+          normalizeText(user.name).toLowerCase())
+    );
+  }
+
+  return false;
+};
+
+const buildAppointmentScopeFilter = (user) => {
+  if (user?.roleId === ROLES.DOCTOR) {
+    return {
+      $or: [
+        { doctorId: user._id },
+        { doctorId: null, doctorName: user.name },
+      ],
+    };
+  }
+
+  return {};
+};
+
+const buildRescheduleMail = (appointment) => {
+  const appointmentDate = formatAppointmentDate(appointment.appointmentDate);
+  const doctorName = appointment.doctorName || "Assigned Doctor";
+  const serviceName = appointment.serviceName || "Consultation";
+  const rescheduleReason = appointment.rescheduleReason
+    ? escapeHtml(appointment.rescheduleReason)
+    : "Please contact the hospital if you need any clarification.";
+
+  return {
+    subject: "Appointment Rescheduled - Samarpan Hospital",
+    text: [
+      `Hello ${appointment.fullName},`,
+      "",
+      "Your appointment has been rescheduled.",
+      `Doctor: ${doctorName}`,
+      `Service: ${serviceName}`,
+      `New date and time: ${appointmentDate}`,
+      `Reason: ${appointment.rescheduleReason || "Not provided"}`,
+      "",
+      "Thank you,",
+      "Samarpan Hospital",
+    ].join("\n"),
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+        <h2 style="margin-bottom: 16px;">Appointment Rescheduled</h2>
+        <p>Hello ${escapeHtml(appointment.fullName)},</p>
+        <p>Your appointment has been rescheduled. Please find the updated details below:</p>
+        <p><strong>Doctor:</strong> ${escapeHtml(doctorName)}</p>
+        <p><strong>Service:</strong> ${escapeHtml(serviceName)}</p>
+        <p><strong>New date and time:</strong> ${escapeHtml(appointmentDate)}</p>
+        <p><strong>Reason:</strong> ${rescheduleReason}</p>
+        <p>If you have any questions, please contact Samarpan Hospital.</p>
+        <p>Thank you,<br />Samarpan Hospital</p>
+      </div>
+    `,
+  };
 };
 
 exports.adminLogin = async (req, res) => {
@@ -24,7 +167,7 @@ exports.adminLogin = async (req, res) => {
     const admin = await User.findOne({ email, roleId: { $nin: [5, 6] } });
     console.log(admin);
     if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
     if (password !== admin.password) {
@@ -115,6 +258,8 @@ exports.updateService = async (req, res) => {
     if (shortDescription) updateData.shortDescription = shortDescription;
     if (req.files?.image)
       updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
+
+    console.log(req.files);
     if (req.files?.icon)
       updateData.icon = `/assets/uploads/${req.files.icon[0].filename}`;
     if (features) updateData.features = JSON.parse(features);
@@ -133,6 +278,626 @@ exports.updateService = async (req, res) => {
     return res
       .status(200)
       .json({ message: "Service updated successfully", service });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addDoctor = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      phone,
+      specialization,
+      description,
+      experience,
+      qualification,
+      expertise,
+      permissions,
+      status,
+      isActive,
+    } = req.body;
+
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !specialization ||
+      !description ||
+      !experience ||
+      !qualification ||
+      !image
+    ) {
+      return res.status(400).json({
+        message: "Name, email, password, image and doctor details are required",
+      });
+    }
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const doctor = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      roleId: ROLES.DOCTOR,
+      permissions: permissions ? JSON.parse(permissions) : {},
+      status: status !== undefined ? status : true,
+      specialization,
+      description,
+      image,
+      experience,
+      qualification,
+      expertise: expertise ? JSON.parse(expertise) : [],
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    const doctorData = doctor.toObject();
+    delete doctorData.password;
+
+    return res.status(201).json({
+      message: "Doctor added successfully",
+      doctor: doctorData,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+exports.getAllDoctors = async (req, res) => {
+  try {
+    const doctors = await User.find({ roleId: ROLES.DOCTOR }).select(
+      "-password",
+    );
+    return res
+      .status(200)
+      .json({ message: "Doctors retrieved successfully", doctors });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      specialization,
+      description,
+      experience,
+      qualification,
+      expertise,
+      permissions,
+      status,
+      isActive,
+    } = req.body;
+
+    const updateData = {};
+    if (email) {
+      const existingUser = await User.findOne({
+        email,
+        _id: { $ne: id },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+    }
+
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (password) updateData.password = password;
+    if (phone) updateData.phone = phone;
+    if (specialization) updateData.specialization = specialization;
+    if (description) updateData.description = description;
+    if (experience) updateData.experience = experience;
+    if (qualification) updateData.qualification = qualification;
+    if (req.files?.image)
+      updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
+    if (expertise) updateData.expertise = JSON.parse(expertise);
+    if (permissions) updateData.permissions = JSON.parse(permissions);
+    if (status !== undefined) updateData.status = status;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const doctor = await User.findOneAndUpdate(
+      { _id: id, roleId: ROLES.DOCTOR },
+      updateData,
+      {
+        new: true,
+      },
+    ).select("-password");
+
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Doctor updated successfully", doctor });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doctor = await User.findOneAndDelete({
+      _id: id,
+      roleId: ROLES.DOCTOR,
+    });
+
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
+
+    return res.status(200).json({ message: "Doctor deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAppointments = async (req, res) => {
+  try {
+    if (!canViewAppointments(req.user)) {
+      return res.status(403).json({
+        message: "You do not have permission to view appointments",
+      });
+    }
+
+    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number.parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
+    const skip = (page - 1) * limit;
+    const status = normalizeText(req.query.status).toLowerCase();
+    const search = normalizeText(req.query.search);
+
+    const filterConditions = [];
+    const scopeFilter = buildAppointmentScopeFilter(req.user);
+
+    if (Object.keys(scopeFilter).length) {
+      filterConditions.push(scopeFilter);
+    }
+
+    if (status && status !== "all") {
+      if (!ALLOWED_APPOINTMENT_STATUSES.has(status)) {
+        return res.status(400).json({ message: "Invalid appointment status" });
+      }
+
+      filterConditions.push({ status });
+    }
+
+    if (search) {
+      filterConditions.push({
+        $or: [
+          { fullName: { $regex: search, $options: "i" } },
+          { doctorName: { $regex: search, $options: "i" } },
+          { serviceName: { $regex: search, $options: "i" } },
+          { phoneNumber: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+          { reason: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    const filter =
+      filterConditions.length > 0 ? { $and: filterConditions } : {};
+
+    const [appointments, total] = await Promise.all([
+      Appointment.find(filter)
+        .sort({ appointmentDate: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Appointment.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      message: "Appointments retrieved successfully",
+      appointments,
+      total,
+      page,
+      limit,
+      scope: req.user.roleId === ROLES.DOCTOR ? "doctor" : "admin",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    if (!canManageAppointments(req.user, appointment)) {
+      return res.status(403).json({
+        message: "You do not have permission to update this appointment",
+      });
+    }
+
+    const action = normalizeText(req.body.action).toLowerCase();
+    const requestedStatus = normalizeText(req.body.status).toLowerCase();
+    const notes = normalizeText(req.body.notes);
+    const rescheduleReason = normalizeText(
+      req.body.rescheduleReason ||
+        (action === "reschedule" ? req.body.reason : ""),
+    );
+    const rejectionReason = normalizeText(
+      req.body.rejectionReason || (action === "reject" ? req.body.reason : ""),
+    );
+    const nextAppointmentDate = parseAppointmentDate(
+      req.body.appointmentDate ||
+        req.body.scheduledAt ||
+        req.body.preferredDate ||
+        req.body.date,
+    );
+    const shouldApprove =
+      action === "approve" || requestedStatus === "confirmed";
+    const shouldReject =
+      action === "reject" || requestedStatus === "rejected";
+    const shouldMarkCompleted =
+      action === "complete" ||
+      action === "completed" ||
+      requestedStatus === "completed" ||
+      req.body.markAsComplete === true ||
+      req.body.markAsComplete === "true";
+    const shouldReschedule = action === "reschedule" || Boolean(nextAppointmentDate);
+
+    if (requestedStatus && !ALLOWED_APPOINTMENT_STATUSES.has(requestedStatus)) {
+      return res.status(400).json({ message: "Invalid appointment status" });
+    }
+
+    if (shouldReschedule && !nextAppointmentDate) {
+      return res.status(400).json({
+        message: "New appointment date is required to reschedule",
+      });
+    }
+
+    if (
+      !shouldApprove &&
+      !shouldReject &&
+      !shouldMarkCompleted &&
+      !shouldReschedule &&
+      !requestedStatus &&
+      !notes
+    ) {
+      return res.status(400).json({
+        message:
+          "Nothing to update. Send status, notes, or a new appointment date",
+      });
+    }
+
+    const updateData = {
+      updatedBy: req.user?._id || null,
+    };
+
+    if (notes) {
+      updateData.notes = notes;
+    }
+
+    let emailNotification = {
+      attempted: false,
+      sent: false,
+      reason: "No email was triggered",
+    };
+
+    if (shouldMarkCompleted) {
+      updateData.status = "completed";
+      updateData.completedAt = new Date();
+    } else if (shouldApprove) {
+      updateData.status = "confirmed";
+      updateData.approvedAt = new Date();
+      updateData.rejectedAt = null;
+      updateData.rejectionReason = "";
+    } else if (shouldReject) {
+      updateData.status = "rejected";
+      updateData.rejectedAt = new Date();
+      updateData.rejectionReason = rejectionReason;
+      updateData.approvedAt = null;
+      updateData.completedAt = null;
+    } else if (shouldReschedule) {
+      updateData.appointmentDate = nextAppointmentDate;
+      updateData.status =
+        requestedStatus &&
+        requestedStatus !== "completed" &&
+        requestedStatus !== "rejected"
+          ? requestedStatus
+          : "rescheduled";
+      updateData.rescheduleReason = rescheduleReason;
+      updateData.rescheduledAt = new Date();
+      updateData.completedAt = null;
+    } else if (requestedStatus) {
+      updateData.status = requestedStatus;
+      if (requestedStatus === "confirmed") {
+        updateData.approvedAt = new Date();
+        updateData.rejectedAt = null;
+        updateData.rejectionReason = "";
+      }
+      if (requestedStatus === "rejected") {
+        updateData.rejectedAt = new Date();
+        updateData.rejectionReason = rejectionReason;
+        updateData.approvedAt = null;
+      }
+      if (requestedStatus !== "completed") {
+        updateData.completedAt = null;
+      }
+    }
+
+    const updatedAppointment = await Appointment.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true },
+    );
+
+    if (shouldReschedule) {
+      if (!updatedAppointment.email) {
+        emailNotification = {
+          attempted: false,
+          sent: false,
+          reason: "Appointment email is missing",
+        };
+      } else {
+        try {
+          const mailResponse = await sendMail({
+            to: updatedAppointment.email,
+            ...buildRescheduleMail(updatedAppointment),
+          });
+
+          emailNotification = mailResponse.skipped
+            ? {
+                attempted: false,
+                sent: false,
+                reason: mailResponse.reason,
+              }
+            : {
+                attempted: true,
+                sent: true,
+                messageId: mailResponse.info?.messageId || null,
+              };
+        } catch (mailError) {
+          console.error("Reschedule email error:", mailError);
+          emailNotification = {
+            attempted: true,
+            sent: false,
+            reason: mailError.message,
+          };
+        }
+      }
+    }
+
+    let successMessage = "Appointment updated successfully";
+
+    if (shouldMarkCompleted) {
+      successMessage = "Appointment marked as completed successfully";
+    } else if (shouldApprove) {
+      successMessage = "Appointment approved successfully";
+    } else if (shouldReject) {
+      successMessage = "Appointment rejected successfully";
+    } else if (shouldReschedule) {
+      successMessage = "Appointment rescheduled successfully";
+    }
+
+    return res.status(200).json({
+      message: successMessage,
+      appointment: updatedAppointment,
+      emailNotification,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addReview = async (req, res) => {
+  try {
+    const { name, review, location, treatment, rating, sortOrder, isActive } =
+      req.body;
+
+    if (!name || !review) {
+      return res.status(400).json({
+        message: "Name and review are required",
+      });
+    }
+
+    const reviewData = await Review.create({
+      name,
+      review,
+      location,
+      treatment,
+      rating: rating !== undefined ? rating : 5,
+      sortOrder: sortOrder !== undefined ? sortOrder : 0,
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    return res.status(201).json({
+      message: "Review added successfully",
+      review: reviewData,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find().sort({ sortOrder: 1, createdAt: -1 });
+
+    return res
+      .status(200)
+      .json({ message: "Reviews retrieved successfully", reviews });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, review, location, treatment, rating, sortOrder, isActive } =
+      req.body;
+
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (review) updateData.review = review;
+    if (location) updateData.location = location;
+    if (treatment) updateData.treatment = treatment;
+    if (rating !== undefined) updateData.rating = rating;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const reviewData = await Review.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!reviewData) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    return res.status(200).json({
+      message: "Review updated successfully",
+      review: reviewData,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const review = await Review.findByIdAndDelete(id);
+
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    return res.status(200).json({ message: "Review deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addShort = async (req, res) => {
+  try {
+    const { title, shortUrl, thumbnail, sortOrder, isActive } = req.body;
+
+    if (!title || !shortUrl) {
+      return res.status(400).json({
+        message: "Title and short url are required",
+      });
+    }
+
+    const short = await Short.create({
+      title,
+      shortUrl,
+      thumbnail,
+      sortOrder: sortOrder !== undefined ? sortOrder : 0,
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    return res.status(201).json({
+      message: "Short added successfully",
+      short,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+exports.getAllShorts = async (req, res) => {
+  try {
+    const shorts = await Short.find().sort({ sortOrder: 1, createdAt: -1 });
+
+    return res
+      .status(200)
+      .json({ message: "Shorts retrieved successfully", shorts });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateShort = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, shortUrl, thumbnail, sortOrder, isActive } = req.body;
+
+    const updateData = {};
+
+    if (title) updateData.title = title;
+    if (shortUrl) updateData.shortUrl = shortUrl;
+    if (thumbnail) updateData.thumbnail = thumbnail;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const short = await Short.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!short) {
+      return res.status(404).json({ message: "Short not found" });
+    }
+
+    return res.status(200).json({
+      message: "Short updated successfully",
+      short,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteShort = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const short = await Short.findByIdAndDelete(id);
+
+    if (!short) {
+      return res.status(404).json({ message: "Short not found" });
+    }
+
+    return res.status(200).json({ message: "Short deleted successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

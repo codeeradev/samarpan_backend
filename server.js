@@ -14,6 +14,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const server = http.createServer(app);
 
 const adminRoutes = require("./routes/adminRoutes");
+const websiteRoutes = require("./routes/websiteRoutes");
 
 app.get("/", (req, res) => {
   res.send("Samarpan api is running ...");
@@ -21,6 +22,7 @@ app.get("/", (req, res) => {
 
 app.use("/assets", express.static(path.join(__dirname, "assets")));
 
+app.use("/", websiteRoutes);
 app.use("/admin", adminRoutes);
 
 const startServer = async () => {

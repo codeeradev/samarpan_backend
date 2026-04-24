@@ -25,6 +25,11 @@ const serviceSchema = new mongoose.Schema(
     required: true
   },
 
+  icon: {
+    type: String,
+    required: true
+  },
+
   content: {
     type: String
   },
