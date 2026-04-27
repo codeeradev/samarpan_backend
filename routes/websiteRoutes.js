@@ -16,4 +16,5 @@ router.get("/get-doctors", getDoctors);
 router.get("/get-reviews", getReviews);
 router.get("/get-shorts", getShorts);
 router.get("/get-blogs", getBlogs);
+
 module.exports = router;
