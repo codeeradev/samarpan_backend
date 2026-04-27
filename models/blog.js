@@ -1,0 +1,95 @@
+const mongoose = require("mongoose");
+
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+const blogSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    slug: {
+      type: String,
+      unique: true,
+      lowercase: true,
+    },
+
+    serviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+      required: true,
+    },
+
+    image: {
+      type: String, // store image path
+      required: true,
+    },
+
+    shortDescription: {
+      type: String,
+      required: true,
+      maxlength: 300,
+    },
+
+    content: {
+      type: String,
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "published",
+    },
+
+    seo: {
+      metaTitle: String,
+      metaDescription: String,
+      keywords: [String],
+    },
+  },
+  { timestamps: true },
+);
+
+blogSchema.pre("save", async function () {
+  // slug auto
+  if (!this.slug && this.title) {
+    let baseSlug = slugify(this.title);
+    let slug = baseSlug;
+
+    // ensure unique
+    let count = 1;
+    while (
+      await mongoose.models.Blog.findOne({
+        slug,
+        _id: { $ne: this._id },
+      })
+    ) {
+      slug = `${baseSlug}-${count++}`;
+    }
+
+    this.slug = slug;
+  }
+
+  // SEO auto
+  this.seo = this.seo || {};
+
+  if (!this.seo.metaTitle) {
+    this.seo.metaTitle = this.title;
+  }
+
+  if (!this.seo.metaDescription) {
+    this.seo.metaDescription = this.shortDescription.slice(0, 160);
+  }
+});
+
+module.exports = mongoose.model("Blog", blogSchema);

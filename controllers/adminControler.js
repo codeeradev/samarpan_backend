@@ -2,6 +2,8 @@ const User = require("../models/user");
 const Service = require("../models/service");
 const Review = require("../models/review");
 const Short = require("../models/short");
+const Blog = require("../models/blog");
+const Gallery = require("../models/gallery");
 const Appointment = require("../models/appointment");
 const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
@@ -36,6 +38,17 @@ const parseAppointmentDate = (value) => {
 
   const parsedDate = new Date(value);
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const parseJson = (value) => {
+  if (!value) return undefined;
+  if (typeof value !== "string") return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 };
 
 const formatAppointmentDate = (value) => {
@@ -73,10 +86,10 @@ const hasAppointmentPermission = (user, permissionKey) => {
 const canViewAppointments = (user) =>
   Boolean(
     user &&
-      (user.roleId === ROLES.SUPER_ADMIN ||
-        user.roleId === ROLES.DOCTOR ||
-        hasAppointmentPermission(user, permisson.VIEW_APPOINTMENTS) ||
-        hasAppointmentPermission(user, permisson.MANAGE_APPOINTMENTS)),
+    (user.roleId === ROLES.SUPER_ADMIN ||
+      user.roleId === ROLES.DOCTOR ||
+      hasAppointmentPermission(user, permisson.VIEW_APPOINTMENTS) ||
+      hasAppointmentPermission(user, permisson.MANAGE_APPOINTMENTS)),
   );
 
 const canManageAppointments = (user, appointment) => {
@@ -106,10 +119,7 @@ const canManageAppointments = (user, appointment) => {
 const buildAppointmentScopeFilter = (user) => {
   if (user?.roleId === ROLES.DOCTOR) {
     return {
-      $or: [
-        { doctorId: user._id },
-        { doctorId: null, doctorName: user.name },
-      ],
+      $or: [{ doctorId: user._id }, { doctorId: null, doctorName: user.name }],
     };
   }
 
@@ -242,15 +252,8 @@ exports.getAllServices = async (req, res) => {
 exports.updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      title,
-      slug,
-      shortDescription,
-      features,
-      content,
-      faqs,
-      seo,
-    } = req.body;
+    const { title, slug, shortDescription, features, content, faqs, seo } =
+      req.body;
 
     const updateData = {};
     if (title) updateData.title = title;
@@ -561,15 +564,15 @@ exports.updateAppointment = async (req, res) => {
     );
     const shouldApprove =
       action === "approve" || requestedStatus === "confirmed";
-    const shouldReject =
-      action === "reject" || requestedStatus === "rejected";
+    const shouldReject = action === "reject" || requestedStatus === "rejected";
     const shouldMarkCompleted =
       action === "complete" ||
       action === "completed" ||
       requestedStatus === "completed" ||
       req.body.markAsComplete === true ||
       req.body.markAsComplete === "true";
-    const shouldReschedule = action === "reschedule" || Boolean(nextAppointmentDate);
+    const shouldReschedule =
+      action === "reschedule" || Boolean(nextAppointmentDate);
 
     if (requestedStatus && !ALLOWED_APPOINTMENT_STATUSES.has(requestedStatus)) {
       return res.status(400).json({ message: "Invalid appointment status" });
@@ -898,6 +901,156 @@ exports.deleteShort = async (req, res) => {
     }
 
     return res.status(200).json({ message: "Short deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addBlog = async (req, res) => {
+  try {
+    const { title, serviceId, shortDescription, content, seo, status } = req.body;
+
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
+    const newBlog = await Blog.create({
+      title,
+      serviceId,
+      image,
+      shortDescription,
+      content,
+      seo: parseJson(seo),
+      status: status || "published",
+    });
+
+    return res.status(201).json({
+      message: "Blog added successfully",
+      blog: newBlog,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllBlogs = async (req, res) => {
+  try {
+    const blogs = await Blog.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Blogs retrieved successfully",
+      blogs,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateBlog = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, serviceId, shortDescription, content, seo, status } = req.body;
+
+    const updateData = {};
+    if (title) updateData.title = title;
+    if (serviceId) updateData.serviceId = serviceId;
+    if (req.files?.image?.[0]?.filename) {
+      updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
+    }
+    if (shortDescription) updateData.shortDescription = shortDescription;
+    if (content) updateData.content = content;
+    if (seo) updateData.seo = parseJson(seo);
+    if (status) updateData.status = status;
+
+    const updatedBlog = await Blog.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!updatedBlog) {
+      return res.status(404).json({ message: "Blog not found" });
+    }
+
+    return res.status(200).json({
+      message: "Blog updated successfully",
+      blog: updatedBlog,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteBlog = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedBlog = await Blog.findByIdAndDelete(id);
+
+    if (!deletedBlog) {
+      return res.status(404).json({ message: "Blog not found" });
+    }
+
+    return res.status(200).json({
+      message: "Blog deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addGallery = async (req, res) => {
+  try {
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
+    if (!image) {
+      return res.status(400).json({ message: "Gallery image is required" });
+    }
+
+    const galleryItem = await Gallery.create({ image });
+
+    return res.status(201).json({
+      message: "Gallery image added successfully",
+      gallery: galleryItem,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllGallery = async (req, res) => {
+  try {
+    const galleryItems = await Gallery.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Gallery items retrieved successfully",
+      gallery: galleryItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteGallery = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedGallery = await Gallery.findByIdAndDelete(id);
+
+    if (!deletedGallery) {
+      return res.status(404).json({ message: "Gallery image not found" });
+    }
+
+    return res.status(200).json({
+      message: "Gallery image deleted successfully",
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

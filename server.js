@@ -22,7 +22,7 @@ app.get("/", (req, res) => {
 
 app.use("/assets", express.static(path.join(__dirname, "assets")));
 
-app.use("/", websiteRoutes);
+app.use("/api", websiteRoutes);
 app.use("/admin", adminRoutes);
 
 const startServer = async () => {

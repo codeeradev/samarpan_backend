@@ -17,4 +17,8 @@ module.exports = {
   VIEW_APPOINTMENTS: "view_appointments",
   MANAGE_USERS: "manage_users",
   VIEW_USERS: "view_users",
+  MANAGE_BLOGS: "manage_blogs",
+  VIEW_BLOGS: "view_blogs",
+  MANAGE_GALLERY: "manage_gallery",
+  VIEW_GALLERY: "view_gallery",
 };

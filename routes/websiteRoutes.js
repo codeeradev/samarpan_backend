@@ -5,6 +5,7 @@ const {
   getDoctors,
   getReviews,
   getShorts,
+  getBlogs
 } = require("../controllers/websiteController");
 
 const router = express.Router();
@@ -14,5 +15,5 @@ router.get("/get-services", getServices);
 router.get("/get-doctors", getDoctors);
 router.get("/get-reviews", getReviews);
 router.get("/get-shorts", getShorts);
-
+router.get("/get-blogs", getBlogs);
 module.exports = router;

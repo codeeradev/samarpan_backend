@@ -2,6 +2,7 @@ const Service = require("../models/service");
 const User = require("../models/user");
 const Review = require("../models/review");
 const Short = require("../models/short");
+const Blog = require("../models/blog");
 const Appointment = require("../models/appointment");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
@@ -169,46 +170,80 @@ exports.submitAppointment = async (req, res) => {
 };
 
 exports.getServices = async (req, res) => {
-    try {
-        const services = await Service.find({ isActive: true });
-        return res.status(200).json({ message: "Services retrieved successfully", services });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Server error" });
-    }
+  try {
+    const services = await Service.find({ isActive: true });
+    return res
+      .status(200)
+      .json({ message: "Services retrieved successfully", services });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
 exports.getDoctors = async (req, res) => {
-    try {
-        const doctors = await User.find({
-            roleId: ROLES.DOCTOR,
-            status: { $ne: false },
-            isActive: { $ne: false },
-            specialization: { $exists: true, $ne: "" }
-        }).select("name image specialization description experience qualification expertise isActive createdAt updatedAt");
-        return res.status(200).json({ message: "Doctors retrieved successfully", doctors });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Server error" });
-    }
+  try {
+    const doctors = await User.find({
+      roleId: ROLES.DOCTOR,
+      status: { $ne: false },
+      isActive: { $ne: false },
+      specialization: { $exists: true, $ne: "" },
+    }).select(
+      "name image specialization description experience qualification expertise isActive createdAt updatedAt",
+    );
+    return res
+      .status(200)
+      .json({ message: "Doctors retrieved successfully", doctors });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
 exports.getReviews = async (req, res) => {
-    try {
-        const reviews = await Review.find({ isActive: true }).sort({ sortOrder: 1, createdAt: -1 });
-        return res.status(200).json({ message: "Reviews retrieved successfully", reviews });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Server error" });
-    }
+  try {
+    const reviews = await Review.find({ isActive: true }).sort({
+      sortOrder: 1,
+      createdAt: -1,
+    });
+    return res
+      .status(200)
+      .json({ message: "Reviews retrieved successfully", reviews });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
 exports.getShorts = async (req, res) => {
-    try {
-        const shorts = await Short.find({ isActive: true }).sort({ sortOrder: 1, createdAt: -1 });
-        return res.status(200).json({ message: "Shorts retrieved successfully", shorts });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Server error" });
+  try {
+    const shorts = await Short.find({ isActive: true }).sort({
+      sortOrder: 1,
+      createdAt: -1,
+    });
+    return res
+      .status(200)
+      .json({ message: "Shorts retrieved successfully", shorts });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getBlogs = async (req, res) => {
+  try {
+    const { slug } = req.query;
+
+    const filter = { isActive: true };
+    if (slug) {
+      filter.slug = slug;
     }
+    const blogs = await Blog.find(filter).sort({ createdAt: -1 });
+    return res
+      .status(200)
+      .json({ message: "Blogs retrieved successfully", blogs });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
 };

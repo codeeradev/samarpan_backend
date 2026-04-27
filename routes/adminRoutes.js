@@ -25,6 +25,13 @@ const {
   getAllShorts,
   updateShort,
   deleteShort,
+  addBlog,
+  getAllBlogs,
+  updateBlog,
+  deleteBlog,
+  addGallery,
+  getAllGallery,
+  deleteGallery,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -45,5 +52,12 @@ router.post("/add-short", verifyToken, checkPermission(permisson.MANAGE_SHORTS),
 router.get("/get-all-shorts", verifyToken, checkPermission(permisson.VIEW_SHORTS), getAllShorts);
 router.post("/update-short/:id", verifyToken, checkPermission(permisson.MANAGE_SHORTS), updateShort);
 router.post("/delete-short/:id", verifyToken, checkPermission(permisson.MANAGE_SHORTS), deleteShort);
+router.post("/add-blog", verifyToken, checkPermission(permisson.MANAGE_BLOGS), upload, addBlog);
+router.get("/get-all-blogs", verifyToken, checkPermission(permisson.VIEW_BLOGS), getAllBlogs);
+router.post("/update-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BLOGS), upload, updateBlog);
+router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BLOGS), deleteBlog);
+router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
+router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
+router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
 
 module.exports = router;
