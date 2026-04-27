@@ -234,7 +234,7 @@ exports.getBlogs = async (req, res) => {
   try {
     const { slug } = req.query;
 
-    const filter = { isActive: true };
+    const filter = { status: "published" };
     if (slug) {
       filter.slug = slug;
     }
