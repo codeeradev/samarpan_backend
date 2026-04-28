@@ -4,8 +4,10 @@ const Review = require("../models/review");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Appointment = require("../models/appointment");
+const Setting = require("../models/setting");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
+const Gallery = require("../models/gallery");
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -291,6 +293,32 @@ exports.getBlogs = async (req, res) => {
       message: "Blogs retrieved successfully",
       blogs,
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getGallery = async (req, res) => {
+  try {
+    const galleryItems = await Gallery.find().select("-__v").sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Gallery items retrieved successfully",
+      gallery: galleryItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getSettings = async (req, res) => {
+  try {
+    const settings = await Setting.findOne().select("inquiry_email inquiry_mobile_number address working_hours contact_us term_and_condition privacy_policy about_us social_links");
+    return res
+      .status(200)
+      .json({ message: "Settings retrieved successfully", settings });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

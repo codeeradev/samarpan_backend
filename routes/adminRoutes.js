@@ -32,6 +32,8 @@ const {
   addGallery,
   getAllGallery,
   deleteGallery,
+  getSettings,
+  updateSettings
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -59,5 +61,7 @@ router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BL
 router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
 router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
+router.get("/get-settings", verifyToken, checkAdmin, getSettings);
+router.post("/update-settings", verifyToken, checkAdmin, updateSettings);
 
 module.exports = router;

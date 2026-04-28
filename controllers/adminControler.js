@@ -4,6 +4,7 @@ const Review = require("../models/review");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
+const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
@@ -909,7 +910,8 @@ exports.deleteShort = async (req, res) => {
 
 exports.addBlog = async (req, res) => {
   try {
-    const { title, serviceId, shortDescription, content, seo, status } = req.body;
+    const { title, serviceId, shortDescription, content, seo, status } =
+      req.body;
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -952,7 +954,8 @@ exports.getAllBlogs = async (req, res) => {
 exports.updateBlog = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, serviceId, shortDescription, content, seo, status } = req.body;
+    const { title, serviceId, shortDescription, content, seo, status } =
+      req.body;
 
     const updateData = {};
     if (title) updateData.title = title;
@@ -1054,5 +1057,69 @@ exports.deleteGallery = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// post /admin/update-settings
+exports.updateSettings = async (req, res) => {
+  try {
+   const {name, email, inquiry_email, mobile_number, inquiry_mobile_number, address, working_hours, password, contact_us, term_and_condition, privacy_policy, about_us, social_links} = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (inquiry_email) updateData.inquiry_email = inquiry_email;
+    if (mobile_number) updateData.mobile_number = mobile_number;
+    if (inquiry_mobile_number) updateData.inquiry_mobile_number = inquiry_mobile_number;
+    if (address) updateData.address = address;
+    if (working_hours) updateData.working_hours = working_hours;
+    if (password) updateData.password = password;
+    if (contact_us) updateData.contact_us = contact_us;
+    if (term_and_condition) updateData.term_and_condition = term_and_condition;
+    if (privacy_policy) updateData.privacy_policy = privacy_policy;
+    if (about_us) updateData.about_us = about_us;
+    if (social_links) updateData.social_links = parseJson(social_links);
+    const settings = await Setting.findOneAndUpdate(
+      {},
+
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Settings updated",
+      data: settings,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error updating settings",
+      error: error.message,
+    });
+  }
+};
+// GET /admin/get-settings
+exports.getSettings = async (req, res) => {
+  try {
+    const settings = await Setting.findOne();
+
+    if (!settings) {
+      return res.status(404).json({
+        success: false,
+        message: "Settings not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching settings",
+      error: error.message,
+    });
   }
 };
