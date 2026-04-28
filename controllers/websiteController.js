@@ -171,7 +171,29 @@ exports.submitAppointment = async (req, res) => {
 
 exports.getServices = async (req, res) => {
   try {
-    const services = await Service.find({ isActive: true });
+    const { slug } = req.query;
+
+    const filter = { isActive: true };
+    if (slug) {
+      filter.slug = slug;
+    }
+
+    // 👉 SINGLE SERVICE
+    if (slug) {
+      const service = await Service.findOne(filter).select("-__v -isActive");
+
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      return res
+        .status(200)
+        .json({ message: "Service retrieved successfully", service });
+    }
+
+    const services = await Service.find(filter)
+      .select("-__v -isActive -content -faqs -seo")
+      .sort({ createdAt: -1 });
     return res
       .status(200)
       .json({ message: "Services retrieved successfully", services });
@@ -202,10 +224,12 @@ exports.getDoctors = async (req, res) => {
 
 exports.getReviews = async (req, res) => {
   try {
-    const reviews = await Review.find({ isActive: true }).sort({
-      sortOrder: 1,
-      createdAt: -1,
-    });
+    const reviews = await Review.find({ isActive: true })
+      .select("-__v -isActive")
+      .sort({
+        sortOrder: 1,
+        createdAt: -1,
+      });
     return res
       .status(200)
       .json({ message: "Reviews retrieved successfully", reviews });
@@ -217,10 +241,12 @@ exports.getReviews = async (req, res) => {
 
 exports.getShorts = async (req, res) => {
   try {
-    const shorts = await Short.find({ isActive: true }).sort({
-      sortOrder: 1,
-      createdAt: -1,
-    });
+    const shorts = await Short.find({ isActive: true })
+      .select("-__v -isActive")
+      .sort({
+        sortOrder: 1,
+        createdAt: -1,
+      });
     return res
       .status(200)
       .json({ message: "Shorts retrieved successfully", shorts });
@@ -238,10 +264,33 @@ exports.getBlogs = async (req, res) => {
     if (slug) {
       filter.slug = slug;
     }
-    const blogs = await Blog.find(filter).sort({ createdAt: -1 });
-    return res
-      .status(200)
-      .json({ message: "Blogs retrieved successfully", blogs });
+
+    // 👉 SINGLE BLOG
+    if (slug) {
+      const blog = await Blog.findOne(filter)
+        .populate("serviceId", "title")
+        .select("-__v");
+
+      if (!blog) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+
+      return res.status(200).json({
+        message: "Blog retrieved successfully",
+        blog,
+      });
+    }
+
+    // 👉 ALL BLOGS
+    const blogs = await Blog.find(filter)
+      .populate("serviceId", "title")
+      .select("-__v")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Blogs retrieved successfully",
+      blogs,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
