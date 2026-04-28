@@ -106,14 +106,14 @@ const resolveDoctorDetails = async (doctorInput) => {
 
 exports.submitAppointment = async (req, res) => {
   try {
-    const fullName = normalizeText(req.body.fullName || req.body.name);
+    const fullName = normalizeText(req.body.full_name || req.body.name);
     const email = normalizeText(req.body.email).toLowerCase();
-    const phoneNumber = normalizeText(req.body.phoneNumber || req.body.phone);
-    const serviceInput = req.body.serviceId || req.body.service;
-    const doctorInput = req.body.doctorId || req.body.doctor;
+    const phoneNumber = normalizeText(req.body.phone_number || req.body.phone);
+    const serviceInput = req.body.service_id || req.body.service;
+    const doctorInput = req.body.doctor_id || req.body.doctor;
     const preferredDate = parseAppointmentDate(
-      req.body.preferredDate ||
-        req.body.appointmentDate ||
+      req.body.preferred_date ||
+        req.body.appointment_date ||
         req.body.scheduledAt ||
         req.body.date,
     );
