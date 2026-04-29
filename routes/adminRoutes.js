@@ -35,6 +35,8 @@ const {
   deleteGallery,
   getSettings,
   updateSettings,
+  updateAdminAccount,
+  addStaff,
   getAdminStaff,
   updateStaffRoleAndPermissions,
   deleteStaff,
@@ -68,6 +70,8 @@ router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLE
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
 router.get("/get-settings", verifyToken, checkPermission(permisson.VIEW_SETTINGS), checkAdmin, getSettings);
 router.post("/update-settings", verifyToken, checkPermission(permisson.MANAGE_SETTINGS), checkAdmin, updateSettings);
+router.post("/update-admin-account", verifyToken, updateAdminAccount);
+router.post("/add-staff", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, addStaff);
 router.get("/get-admin-staff", verifyToken, checkPermission(permisson.VIEW_ADMIN_STAFF), checkAdmin, getAdminStaff);
 router.post("/update-staff/:id", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, updateStaffRoleAndPermissions);
 router.post("/delete-staff/:id", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, deleteStaff);
