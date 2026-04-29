@@ -20,6 +20,15 @@ const ROLE_MAP = {
   6: "GUEST",
 };
 
+const ADMIN_STAFF_ROLE_IDS = [
+  ROLES.SUPER_ADMIN,
+  ROLES.DOCTOR,
+  ROLES.NURSE,
+  ROLES.RECEPTIONIST,
+];
+
+const ADDABLE_STAFF_ROLE_IDS = [ROLES.NURSE, ROLES.RECEPTIONIST];
+
 const ALLOWED_APPOINTMENT_STATUSES = new Set([
   "pending",
   "confirmed",
@@ -31,6 +40,28 @@ const ALLOWED_APPOINTMENT_STATUSES = new Set([
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
+
+const normalizePhone = (value) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits ? Number(digits) : undefined;
+};
+
+const serializeStaff = (value) => {
+  if (!value) {
+    return value;
+  }
+
+  const staff = typeof value.toObject === "function" ? value.toObject() : value;
+
+  if (staff.password) {
+    delete staff.password;
+  }
+
+  return {
+    ...staff,
+    role: ROLE_MAP[staff.roleId] || "UNKNOWN",
+  };
+};
 
 const parseAppointmentDate = (value) => {
   if (!value) {
@@ -1143,12 +1174,146 @@ exports.getSettings = async (req, res) => {
   }
 };
 
+exports.updateAdminAccount = async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
+    const updateData = {};
+
+    const normalizedName = normalizeText(name);
+    const normalizedEmail = normalizeText(email).toLowerCase();
+    const normalizedPassword = normalizeText(password);
+
+    if (name !== undefined) {
+      if (!normalizedName) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      updateData.name = normalizedName;
+    }
+
+    if (email !== undefined) {
+      if (!normalizedEmail) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const existingUser = await User.findOne({
+        email: normalizedEmail,
+        _id: { $ne: req.user._id },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+
+      updateData.email = normalizedEmail;
+    }
+
+    if (phone !== undefined) {
+      const normalizedPhone = normalizePhone(phone);
+
+      if (normalizedPhone) {
+        updateData.phone = normalizedPhone;
+      }
+    }
+
+    if (password !== undefined) {
+      if (!normalizedPassword || normalizedPassword.length < 8) {
+        return res.status(400).json({
+          message: "Password must be at least 8 characters long",
+        });
+      }
+
+      updateData.password = normalizedPassword;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: "Nothing to update" });
+    }
+
+    const admin = await User.findByIdAndUpdate(req.user._id, updateData, {
+      new: true,
+    }).select("-password");
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin account not found" });
+    }
+
+    return res.status(200).json({
+      message: "Admin account updated successfully",
+      admin: serializeStaff(admin),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addStaff = async (req, res) => {
+  try {
+    const { name, email, password, phone, roleId, permissions, status, isActive } =
+      req.body;
+
+    const normalizedName = normalizeText(name);
+    const normalizedEmail = normalizeText(email).toLowerCase();
+    const normalizedPassword = normalizeText(password);
+    const parsedRoleId = Number(roleId);
+
+    if (!normalizedName || !normalizedEmail || !normalizedPassword) {
+      return res.status(400).json({
+        message: "Name, email and password are required",
+      });
+    }
+
+    if (normalizedPassword.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters long",
+      });
+    }
+
+    if (!ADDABLE_STAFF_ROLE_IDS.includes(parsedRoleId)) {
+      return res.status(400).json({
+        message: "Only nurse and receptionist accounts can be added here",
+      });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const staff = await User.create({
+      name: normalizedName,
+      email: normalizedEmail,
+      password: normalizedPassword,
+      phone: normalizePhone(phone),
+      roleId: parsedRoleId,
+      permissions: parseJson(permissions) || {},
+      status: status !== undefined ? status : true,
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    return res.status(201).json({
+      message: "Staff member added successfully",
+      staff: serializeStaff(staff),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.getAdminStaff = async (req, res) => {
   try {
-    const staff = await User.find({ roleId: { $ne: [ROLES.USER, ROLES.GUEST] } }).select("-password");
+    const staff = await User.find({
+      roleId: { $nin: [ROLES.USER, ROLES.GUEST] },
+    })
+      .sort({ createdAt: -1 })
+      .select("-password");
+
     return res.status(200).json({
       message: "Staff retrieved successfully",
-      staff,
+      staff: staff.map(serializeStaff),
     });
   } catch (error) {
     console.error(error);
@@ -1161,13 +1326,25 @@ exports.updateStaffRoleAndPermissions = async (req, res) => {
     const { id } = req.params;
     const { roleId, permissions } = req.body;
 
-    if (roleId && ![ROLES.SUPER_ADMIN, ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST].includes(roleId)) {
+    if (String(req.user._id) === String(id)) {
+      return res.status(400).json({
+        message: "You cannot update your own role or permissions here",
+      });
+    }
+
+    const parsedRoleId =
+      roleId !== undefined && roleId !== null ? Number(roleId) : undefined;
+
+    if (
+      parsedRoleId !== undefined &&
+      !ADMIN_STAFF_ROLE_IDS.includes(parsedRoleId)
+    ) {
       return res.status(400).json({ message: "Invalid roleId" });
     }
 
     const updateData = {};
-    if (roleId) updateData.roleId = roleId;
-    if (permissions) updateData.permissions = parseJson(permissions);
+    if (parsedRoleId !== undefined) updateData.roleId = parsedRoleId;
+    if (permissions !== undefined) updateData.permissions = parseJson(permissions);
 
     const staff = await User.findOneAndUpdate(
       { _id: id, roleId: { $nin: [ROLES.USER, ROLES.GUEST] } },
@@ -1181,7 +1358,7 @@ exports.updateStaffRoleAndPermissions = async (req, res) => {
 
     return res.status(200).json({
       message: "Staff role and permissions updated successfully",
-      staff,
+      staff: serializeStaff(staff),
     });
   } catch (error) {
     console.error(error);
@@ -1192,6 +1369,12 @@ exports.updateStaffRoleAndPermissions = async (req, res) => {
 exports.deleteStaff = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (String(req.user._id) === String(id)) {
+      return res
+        .status(400)
+        .json({ message: "You cannot delete your own account here" });
+    }
 
     const staff = await User.findOneAndDelete({
       _id: id,
