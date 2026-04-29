@@ -93,74 +93,21 @@ const mergeUploadedFilesIntoContent = (content, files) => {
   return mergedContent;
 };
 
-const buildPatientIdentityFilter = ({ email, phoneNumber, phone }) => {
-  const normalizedEmail = normalizeText(email).toLowerCase();
-  const normalizedPhone = normalizePhone(phoneNumber || phone);
-  const filters = [];
-
-  if (normalizedEmail) {
-    filters.push({ email: normalizedEmail });
-  }
-
-  if (normalizedPhone) {
-    filters.push({ phone: normalizedPhone });
-  }
-
-  if (filters.length === 0) {
+const dischargePatientFromAppointment = async (appointment, dischargedAt = new Date()) => {
+  if (!appointment?._id) {
     return null;
   }
 
-  return {
-    roleId: ROLES.USER,
-    $or: filters,
-  };
-};
-
-const upsertPatientFromAppointment = async (appointment) => {
-  if (!appointment) {
-    return null;
-  }
-
-  const patientFilter = buildPatientIdentityFilter({
-    email: appointment.email,
-    phoneNumber: appointment.phoneNumber,
-  });
-
-  const normalizedName = normalizeText(appointment.fullName);
-  const normalizedEmail = normalizeText(appointment.email).toLowerCase();
-  const normalizedPhone = normalizePhone(appointment.phoneNumber);
-
-  if (!patientFilter || !normalizedName) {
-    return null;
-  }
-
-  const updateData = {
-    name: normalizedName,
-    status: true,
-    isActive: true,
-    dischargedAt: null,
-  };
-
-  if (normalizedEmail) {
-    updateData.email = normalizedEmail;
-  }
-
-  if (normalizedPhone) {
-    updateData.phone = normalizedPhone;
-  }
-
-  return User.findOneAndUpdate(
-    patientFilter,
+  return Appointment.findByIdAndUpdate(
+    appointment._id,
     {
-      $set: updateData,
-      $setOnInsert: {
-        roleId: ROLES.USER,
+      $set: {
+        status: "completed",
+        completedAt: dischargedAt,
+        dischargedAt,
       },
     },
-    {
-      new: true,
-      upsert: true,
-    },
+    { new: true },
   );
 };
 
@@ -615,13 +562,35 @@ exports.deleteDoctor = async (req, res) => {
 
 exports.getAllPatients = async (req, res) => {
   try {
-    const patients = await User.find({ roleId: ROLES.USER })
+    const appointments = await Appointment.find({
+      status: { $in: ["confirmed", "rescheduled", "completed"] },
+    })
       .sort({ createdAt: -1, updatedAt: -1 })
-      .select("-password");
+      .select(
+        "_id fullName phoneNumber email appointmentDate age gender address bloodGroup medicalHistory status dischargedAt createdAt updatedAt",
+      );
+
+    const patients = appointments.map((appointment) => ({
+      _id: appointment._id,
+      name: appointment.fullName,
+      phone: appointment.phoneNumber,
+      email: appointment.email,
+      age: appointment.age ?? null,
+      gender: appointment.gender ?? null,
+      address: appointment.address ?? "",
+      bloodGroup: appointment.bloodGroup ?? "",
+      medicalHistory: appointment.medicalHistory ?? "",
+      status: appointment.status !== "completed",
+      isActive: appointment.status !== "completed",
+      dischargedAt: appointment.dischargedAt || appointment.completedAt || null,
+      appointmentDate: appointment.appointmentDate,
+      createdAt: appointment.createdAt,
+      updatedAt: appointment.updatedAt,
+    }));
 
     return res.status(200).json({
       message: "Patients retrieved successfully",
-      patients: patients.map(serializeUser),
+      patients,
     });
   } catch (error) {
     console.error(error);
@@ -657,11 +626,11 @@ exports.updatePatient = async (req, res) => {
       });
     }
 
-    const patient = await User.findOneAndUpdate(
-      { _id: id, roleId: ROLES.USER },
+    const patient = await Appointment.findByIdAndUpdate(
+      id,
       {
-        name,
-        phone,
+        fullName: name,
+        phoneNumber: String(phone),
         age,
         gender,
         address,
@@ -671,7 +640,7 @@ exports.updatePatient = async (req, res) => {
       {
         new: true,
       },
-    ).select("-password");
+    );
 
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
@@ -679,7 +648,23 @@ exports.updatePatient = async (req, res) => {
 
     return res.status(200).json({
       message: "Patient updated successfully",
-      patient: serializeUser(patient),
+      patient: {
+        _id: patient._id,
+        name: patient.fullName,
+        phone: patient.phoneNumber,
+        email: patient.email,
+        age: patient.age ?? null,
+        gender: patient.gender ?? null,
+        address: patient.address ?? "",
+        bloodGroup: patient.bloodGroup ?? "",
+        medicalHistory: patient.medicalHistory ?? "",
+        status: patient.status !== "completed",
+        isActive: patient.status !== "completed",
+        dischargedAt: patient.dischargedAt || patient.completedAt || null,
+        appointmentDate: patient.appointmentDate,
+        createdAt: patient.createdAt,
+        updatedAt: patient.updatedAt,
+      },
     });
   } catch (error) {
     console.error(error);
@@ -690,25 +675,46 @@ exports.updatePatient = async (req, res) => {
 exports.dischargePatient = async (req, res) => {
   try {
     const { id } = req.params;
+    const dischargedAt = new Date();
 
-    const patient = await User.findOneAndUpdate(
-      { _id: id, roleId: ROLES.USER },
+    const patient = await Appointment.findByIdAndUpdate(
+      id,
       {
-        status: false,
-        dischargedAt: new Date(),
+        status: "completed",
+        completedAt: dischargedAt,
+        dischargedAt,
       },
       {
         new: true,
       },
-    ).select("-password");
+    );
 
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
+    const appointment = patient;
+
     return res.status(200).json({
       message: "Patient discharged successfully",
-      patient: serializeUser(patient),
+      patient: {
+        _id: patient._id,
+        name: patient.fullName,
+        phone: patient.phoneNumber,
+        email: patient.email,
+        age: patient.age ?? null,
+        gender: patient.gender ?? null,
+        address: patient.address ?? "",
+        bloodGroup: patient.bloodGroup ?? "",
+        medicalHistory: patient.medicalHistory ?? "",
+        status: false,
+        isActive: false,
+        dischargedAt: patient.dischargedAt || patient.completedAt || dischargedAt,
+        appointmentDate: patient.appointmentDate,
+        createdAt: patient.createdAt,
+        updatedAt: patient.updatedAt,
+      },
+      appointment,
     });
   } catch (error) {
     console.error(error);
@@ -870,17 +876,20 @@ exports.updateAppointment = async (req, res) => {
     if (shouldMarkCompleted) {
       updateData.status = "completed";
       updateData.completedAt = new Date();
+      updateData.dischargedAt = updateData.completedAt;
     } else if (shouldApprove) {
       updateData.status = "confirmed";
       updateData.approvedAt = new Date();
       updateData.rejectedAt = null;
       updateData.rejectionReason = "";
+      updateData.dischargedAt = null;
     } else if (shouldReject) {
       updateData.status = "rejected";
       updateData.rejectedAt = new Date();
       updateData.rejectionReason = rejectionReason;
       updateData.approvedAt = null;
       updateData.completedAt = null;
+      updateData.dischargedAt = null;
     } else if (shouldReschedule) {
       updateData.appointmentDate = nextAppointmentDate;
       updateData.status =
@@ -892,6 +901,7 @@ exports.updateAppointment = async (req, res) => {
       updateData.rescheduleReason = rescheduleReason;
       updateData.rescheduledAt = new Date();
       updateData.completedAt = null;
+      updateData.dischargedAt = null;
     } else if (requestedStatus) {
       updateData.status = requestedStatus;
       if (requestedStatus === "confirmed") {
@@ -906,6 +916,10 @@ exports.updateAppointment = async (req, res) => {
       }
       if (requestedStatus !== "completed") {
         updateData.completedAt = null;
+        updateData.dischargedAt = null;
+      } else {
+        updateData.completedAt = new Date();
+        updateData.dischargedAt = updateData.completedAt;
       }
     }
 
@@ -915,12 +929,11 @@ exports.updateAppointment = async (req, res) => {
       { new: true },
     );
 
-    if (
-      updatedAppointment &&
-      (updatedAppointment.status === "confirmed" ||
-        updatedAppointment.status === "completed")
-    ) {
-      await upsertPatientFromAppointment(updatedAppointment);
+    if (updatedAppointment && updatedAppointment.status === "completed") {
+      await dischargePatientFromAppointment(
+        updatedAppointment,
+        updateData.completedAt || new Date(),
+      );
     }
 
     if (shouldReschedule) {

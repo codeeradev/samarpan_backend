@@ -51,6 +51,30 @@ const appointmentSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    age: {
+      type: Number,
+      default: null,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", null],
+      default: null,
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    bloodGroup: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    medicalHistory: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     notes: {
       type: String,
       trim: true,
@@ -91,6 +115,10 @@ const appointmentSchema = new mongoose.Schema(
       default: "",
     },
     completedAt: {
+      type: Date,
+      default: null,
+    },
+    dischargedAt: {
       type: Date,
       default: null,
     },
