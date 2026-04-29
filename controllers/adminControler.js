@@ -206,6 +206,35 @@ const buildAppointmentScopeFilter = (user) => {
   return {};
 };
 
+const buildDayKey = (date) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: process.env.MAIL_TIMEZONE || "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+
+const buildMonthKey = (date) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: process.env.MAIL_TIMEZONE || "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+  }).format(date);
+
+const getStartOfWeek = (base = new Date()) => {
+  const d = new Date(base);
+  const day = d.getDay(); // 0=Sun
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - day);
+  return d;
+};
+
+const getEndOfDay = (base = new Date()) => {
+  const d = new Date(base);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
 const buildRescheduleMail = (appointment) => {
   const appointmentDate = formatAppointmentDate(appointment.appointmentDate);
   const doctorName = appointment.doctorName || "Assigned Doctor";
@@ -783,6 +812,180 @@ exports.getAppointments = async (req, res) => {
       page,
       limit,
       scope: req.user.roleId === ROLES.DOCTOR ? "doctor" : "admin",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /admin/get-dashboard
+exports.getDashboard = async (req, res) => {
+  try {
+    const scopeFilter = buildAppointmentScopeFilter(req.user);
+    const hasScope = Object.keys(scopeFilter).length > 0;
+    const appointmentScopeFilter = hasScope ? scopeFilter : {};
+
+    const now = new Date();
+    const weekStart = getStartOfWeek(now);
+    const weekEnd = getEndOfDay(now);
+
+    const last7Start = new Date(now);
+    last7Start.setDate(now.getDate() - 6);
+    last7Start.setHours(0, 0, 0, 0);
+
+    const last6MonthsStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    last6MonthsStart.setHours(0, 0, 0, 0);
+
+    const patientStatusFilter = { status: { $in: ["confirmed", "rescheduled", "completed"] } };
+    const patientScopeFilter = hasScope
+      ? { $and: [scopeFilter, patientStatusFilter] }
+      : patientStatusFilter;
+
+    const [
+      totalDoctors,
+      totalServices,
+      totalBlogs,
+      totalGallery,
+      totalReviews,
+      totalShorts,
+      totalPatients,
+      totalAppointments,
+      appointmentsThisWeek,
+      statusCounts,
+      recentAppointments,
+      apptByDayRaw,
+      patientsByMonthRaw,
+    ] = await Promise.all([
+      User.countDocuments({
+        roleId: ROLES.DOCTOR,
+        status: { $ne: false },
+        isActive: { $ne: false },
+      }),
+      Service.countDocuments({}),
+      Blog.countDocuments({}),
+      Gallery.countDocuments({}),
+      Review.countDocuments({}),
+      Short.countDocuments({}),
+      Appointment.countDocuments(patientScopeFilter),
+      Appointment.countDocuments(appointmentScopeFilter),
+      Appointment.countDocuments({
+        ...(hasScope ? scopeFilter : {}),
+        appointmentDate: { $gte: weekStart, $lte: weekEnd },
+      }),
+      Appointment.aggregate([
+        ...(hasScope ? [{ $match: scopeFilter }] : []),
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      Appointment.find(appointmentScopeFilter)
+        .sort({ appointmentDate: -1, createdAt: -1 })
+        .limit(5)
+        .select(
+          "_id fullName email phoneNumber doctorName doctorId serviceName serviceId appointmentDate reason status createdAt updatedAt",
+        ),
+      Appointment.aggregate([
+        ...(hasScope ? [{ $match: scopeFilter }] : []),
+        { $match: { appointmentDate: { $gte: last7Start, $lte: weekEnd } } },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$appointmentDate",
+                timezone: process.env.MAIL_TIMEZONE || "Asia/Kolkata",
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Appointment.aggregate([
+        ...(hasScope ? [{ $match: scopeFilter }] : []),
+        { $match: { ...patientStatusFilter, createdAt: { $gte: last6MonthsStart, $lte: weekEnd } } },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m",
+                date: "$createdAt",
+                timezone: process.env.MAIL_TIMEZONE || "Asia/Kolkata",
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
+
+    const countsByStatus = statusCounts.reduce((acc, item) => {
+      const key = String(item._id || "").toLowerCase();
+      if (!key) return acc;
+      acc[key] = item.count;
+      return acc;
+    }, {});
+
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(now.getDate() - (6 - i));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+
+    const appointmentCountByDayKey = apptByDayRaw.reduce((acc, row) => {
+      acc[row._id] = row.count;
+      return acc;
+    }, {});
+
+    const appointmentsLast7Days = last7Days.map((d) => {
+      const key = buildDayKey(d); // YYYY-MM-DD
+      return { day: key, count: appointmentCountByDayKey[key] || 0 };
+    });
+
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+
+    const patientCountByMonthKey = patientsByMonthRaw.reduce((acc, row) => {
+      acc[row._id] = row.count;
+      return acc;
+    }, {});
+
+    const patientsLast6Months = last6Months.map((d) => {
+      const key = buildMonthKey(d); // YYYY-MM
+      return { month: key, count: patientCountByMonthKey[key] || 0 };
+    });
+
+    return res.status(200).json({
+      message: "Dashboard retrieved successfully",
+      scope: req.user?.roleId === ROLES.DOCTOR ? "doctor" : "admin",
+      totals: {
+        totalPatients,
+        totalAppointments,
+        appointmentsThisWeek,
+        totalDoctors,
+        totalServices,
+        totalBlogs,
+        totalGallery,
+        totalReviews,
+        totalShorts,
+      },
+      appointmentsByStatus: {
+        pending: countsByStatus.pending || 0,
+        confirmed: countsByStatus.confirmed || 0,
+        rescheduled: countsByStatus.rescheduled || 0,
+        completed: countsByStatus.completed || 0,
+        rejected: countsByStatus.rejected || 0,
+        cancelled: countsByStatus.cancelled || 0,
+      },
+      charts: {
+        appointmentsLast7Days,
+        patientsLast6Months,
+      },
+      recentAppointments,
     });
   } catch (error) {
     console.error(error);

@@ -45,6 +45,7 @@ const {
   getAllPatients,
   updatePatient,
   dischargePatient,
+  getDashboard,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -58,6 +59,7 @@ router.post("/update-doctor/:id", verifyToken, checkAdmin, upload, updateDoctor)
 router.post("/delete-doctor/:id", verifyToken, checkAdmin, deleteDoctor);
 router.get("/get-appointments", verifyToken, getAppointments);
 router.post("/update-appointment/:id", verifyToken, updateAppointment);
+router.get("/get-dashboard", verifyToken, getDashboard);
 router.post("/add-review", verifyToken, checkPermission(permisson.MANAGE_REVIEWS), addReview);
 router.get("/get-all-reviews", verifyToken, checkPermission(permisson.VIEW_REVIEWS), getAllReviews);
 router.post("/update-review/:id", verifyToken, checkPermission(permisson.MANAGE_REVIEWS), updateReview);
