@@ -255,7 +255,6 @@ exports.adminLogin = async (req, res) => {
     }
 
     const admin = await User.findOne({ email, roleId: { $nin: [5, 6] } });
-    console.log(admin);
     if (!admin) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -342,7 +341,6 @@ exports.updateService = async (req, res) => {
     if (req.files?.image)
       updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
 
-    console.log(req.files);
     if (req.files?.icon)
       updateData.icon = `/assets/uploads/${req.files.icon[0].filename}`;
     if (features) updateData.features = JSON.parse(features);
