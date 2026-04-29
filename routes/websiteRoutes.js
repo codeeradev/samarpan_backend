@@ -7,6 +7,7 @@ const {
   getShorts,
   getBlogs,
   getGallery,
+  getContentByModelKey,
   getSettings,
 } = require("../controllers/websiteController");
 
@@ -19,5 +20,6 @@ router.get("/get-reviews", getReviews);
 router.get("/get-shorts", getShorts);
 router.get("/get-blogs", getBlogs);
 router.get("/get-gallery", getGallery);
+router.get("/get-content/:modelKey", getContentByModelKey);
 router.get("/get-settings", getSettings);
 module.exports = router;

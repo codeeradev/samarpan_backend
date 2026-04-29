@@ -33,6 +33,8 @@ const {
   addGallery,
   getAllGallery,
   deleteGallery,
+  getContentByModelKey,
+  upsertContent,
   getSettings,
   updateSettings,
   updateAdminAccount,
@@ -40,6 +42,9 @@ const {
   getAdminStaff,
   updateStaffRoleAndPermissions,
   deleteStaff,
+  getAllPatients,
+  updatePatient,
+  dischargePatient,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -68,6 +73,8 @@ router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BL
 router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
 router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
+router.get("/get-content/:modelKey", verifyToken, checkAdmin, getContentByModelKey);
+router.post("/upsert-content", verifyToken, checkAdmin, upload.any, upsertContent);
 router.get("/get-settings", verifyToken, checkPermission(permisson.VIEW_SETTINGS), checkAdmin, getSettings);
 router.post("/update-settings", verifyToken, checkPermission(permisson.MANAGE_SETTINGS), checkAdmin, updateSettings);
 router.post("/update-admin-account", verifyToken, updateAdminAccount);
@@ -75,4 +82,7 @@ router.post("/add-staff", verifyToken, checkPermission(permisson.MANAGE_ADMIN_ST
 router.get("/get-admin-staff", verifyToken, checkPermission(permisson.VIEW_ADMIN_STAFF), checkAdmin, getAdminStaff);
 router.post("/update-staff/:id", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, updateStaffRoleAndPermissions);
 router.post("/delete-staff/:id", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, deleteStaff);
+router.get("/get-all-patients", verifyToken, checkPermission(permisson.VIEW_USERS), getAllPatients);
+router.post("/update-patient/:id", verifyToken, checkPermission(permisson.MANAGE_USERS), updatePatient);
+router.post("/discharge-patient/:id", verifyToken, checkPermission(permisson.MANAGE_USERS), dischargePatient);
 module.exports = router;

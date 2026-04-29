@@ -4,6 +4,7 @@ const Review = require("../models/review");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Appointment = require("../models/appointment");
+const Content = require("../models/content");
 const Setting = require("../models/setting");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
@@ -306,6 +307,33 @@ exports.getGallery = async (req, res) => {
     return res.status(200).json({
       message: "Gallery items retrieved successfully",
       gallery: galleryItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getContentByModelKey = async (req, res) => {
+  try {
+    const modelKey = normalizeText(req.params.modelKey).toLowerCase();
+
+    if (!modelKey) {
+      return res.status(400).json({ message: "modelKey is required" });
+    }
+
+    const content = await Content.findOne({
+      modelKey,
+      isActive: { $ne: false },
+    });
+
+    if (!content) {
+      return res.status(404).json({ message: "Content not found" });
+    }
+
+    return res.status(200).json({
+      message: "Content retrieved successfully",
+      content,
     });
   } catch (error) {
     console.error(error);

@@ -16,6 +16,15 @@ const userSchema = new mongoose.Schema(
     phone_verified_at: { type: Date, default: null },
     image: String,
     password: String,
+    age: Number,
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", null],
+      default: null,
+    },
+    address: String,
+    bloodGroup: String,
+    medicalHistory: String,
     specialization: String,
     description: String,
     experience: String,
@@ -28,6 +37,10 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    dischargedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true },

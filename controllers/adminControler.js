@@ -4,6 +4,7 @@ const Review = require("../models/review");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
+const Content = require("../models/content");
 const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const jwt = require("jsonwebtoken");
@@ -46,21 +47,121 @@ const normalizePhone = (value) => {
   return digits ? Number(digits) : undefined;
 };
 
-const serializeStaff = (value) => {
+const parseBoolean = (value) => {
+  if (value === true || value === false) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+
+  return undefined;
+};
+
+const serializeUser = (value) => {
   if (!value) {
     return value;
   }
 
-  const staff = typeof value.toObject === "function" ? value.toObject() : value;
+  const user = typeof value.toObject === "function" ? value.toObject() : value;
 
-  if (staff.password) {
-    delete staff.password;
+  if (user.password) {
+    delete user.password;
   }
 
   return {
-    ...staff,
-    role: ROLE_MAP[staff.roleId] || "UNKNOWN",
+    ...user,
+    role: ROLE_MAP[user.roleId] || "UNKNOWN",
   };
+};
+
+const serializeStaff = serializeUser;
+
+const mergeUploadedFilesIntoContent = (content, files) => {
+  const mergedContent = { ...(content || {}) };
+
+  for (const file of files || []) {
+    if (!file?.fieldname || !file?.filename) {
+      continue;
+    }
+
+    mergedContent[file.fieldname] = `/assets/uploads/${file.filename}`;
+  }
+
+  return mergedContent;
+};
+
+const buildPatientIdentityFilter = ({ email, phoneNumber, phone }) => {
+  const normalizedEmail = normalizeText(email).toLowerCase();
+  const normalizedPhone = normalizePhone(phoneNumber || phone);
+  const filters = [];
+
+  if (normalizedEmail) {
+    filters.push({ email: normalizedEmail });
+  }
+
+  if (normalizedPhone) {
+    filters.push({ phone: normalizedPhone });
+  }
+
+  if (filters.length === 0) {
+    return null;
+  }
+
+  return {
+    roleId: ROLES.USER,
+    $or: filters,
+  };
+};
+
+const upsertPatientFromAppointment = async (appointment) => {
+  if (!appointment) {
+    return null;
+  }
+
+  const patientFilter = buildPatientIdentityFilter({
+    email: appointment.email,
+    phoneNumber: appointment.phoneNumber,
+  });
+
+  const normalizedName = normalizeText(appointment.fullName);
+  const normalizedEmail = normalizeText(appointment.email).toLowerCase();
+  const normalizedPhone = normalizePhone(appointment.phoneNumber);
+
+  if (!patientFilter || !normalizedName) {
+    return null;
+  }
+
+  const updateData = {
+    name: normalizedName,
+    status: true,
+    isActive: true,
+    dischargedAt: null,
+  };
+
+  if (normalizedEmail) {
+    updateData.email = normalizedEmail;
+  }
+
+  if (normalizedPhone) {
+    updateData.phone = normalizedPhone;
+  }
+
+  return User.findOneAndUpdate(
+    patientFilter,
+    {
+      $set: updateData,
+      $setOnInsert: {
+        roleId: ROLES.USER,
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+    },
+  );
 };
 
 const parseAppointmentDate = (value) => {
@@ -512,6 +613,109 @@ exports.deleteDoctor = async (req, res) => {
   }
 };
 
+exports.getAllPatients = async (req, res) => {
+  try {
+    const patients = await User.find({ roleId: ROLES.USER })
+      .sort({ createdAt: -1, updatedAt: -1 })
+      .select("-password");
+
+    return res.status(200).json({
+      message: "Patients retrieved successfully",
+      patients: patients.map(serializeUser),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updatePatient = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const name = normalizeText(req.body.name);
+    const phone = normalizePhone(req.body.phone);
+    const age = Number(req.body.age);
+    const gender = normalizeText(req.body.gender).toLowerCase();
+    const address = normalizeText(req.body.address);
+    const bloodGroup = normalizeText(req.body.bloodGroup);
+    const medicalHistory = normalizeText(req.body.medicalHistory);
+
+    if (!name || !phone || !address || !bloodGroup || !gender) {
+      return res.status(400).json({
+        message:
+          "Name, phone, address, blood group and gender are required",
+      });
+    }
+
+    if (!["male", "female", "other"].includes(gender)) {
+      return res.status(400).json({ message: "Invalid gender" });
+    }
+
+    if (Number.isNaN(age) || age < 1 || age > 150) {
+      return res.status(400).json({
+        message: "Age must be between 1 and 150",
+      });
+    }
+
+    const patient = await User.findOneAndUpdate(
+      { _id: id, roleId: ROLES.USER },
+      {
+        name,
+        phone,
+        age,
+        gender,
+        address,
+        bloodGroup,
+        medicalHistory,
+      },
+      {
+        new: true,
+      },
+    ).select("-password");
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    return res.status(200).json({
+      message: "Patient updated successfully",
+      patient: serializeUser(patient),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.dischargePatient = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const patient = await User.findOneAndUpdate(
+      { _id: id, roleId: ROLES.USER },
+      {
+        status: false,
+        dischargedAt: new Date(),
+      },
+      {
+        new: true,
+      },
+    ).select("-password");
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    return res.status(200).json({
+      message: "Patient discharged successfully",
+      patient: serializeUser(patient),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.getAppointments = async (req, res) => {
   try {
     if (!canViewAppointments(req.user)) {
@@ -710,6 +914,14 @@ exports.updateAppointment = async (req, res) => {
       updateData,
       { new: true },
     );
+
+    if (
+      updatedAppointment &&
+      (updatedAppointment.status === "confirmed" ||
+        updatedAppointment.status === "completed")
+    ) {
+      await upsertPatientFromAppointment(updatedAppointment);
+    }
 
     if (shouldReschedule) {
       if (!updatedAppointment.email) {
@@ -1103,6 +1315,95 @@ exports.deleteGallery = async (req, res) => {
 
     return res.status(200).json({
       message: "Gallery image deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getContentByModelKey = async (req, res) => {
+  try {
+    const modelKey = normalizeText(req.params.modelKey).toLowerCase();
+
+    if (!modelKey) {
+      return res.status(400).json({ message: "modelKey is required" });
+    }
+
+    const content = await Content.findOne({ modelKey });
+
+    return res.status(200).json({
+      message: "Content retrieved successfully",
+      content,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.upsertContent = async (req, res) => {
+  try {
+    const modelKey = normalizeText(req.body.modelKey).toLowerCase();
+    const title = normalizeText(req.body.title);
+    const parsedContent = parseJson(req.body.content);
+    const isActive = parseBoolean(req.body.isActive);
+
+    if (!modelKey) {
+      return res.status(400).json({ message: "modelKey is required" });
+    }
+
+    if (
+      parsedContent !== undefined &&
+      (typeof parsedContent !== "object" || Array.isArray(parsedContent))
+    ) {
+      return res.status(400).json({
+        message: "content must be a valid JSON object",
+      });
+    }
+
+    const existingContent = await Content.findOne({ modelKey });
+    const baseContent =
+      existingContent?.content &&
+      typeof existingContent.content === "object" &&
+      !Array.isArray(existingContent.content)
+        ? existingContent.content
+        : {};
+
+    const mergedContent = mergeUploadedFilesIntoContent(
+      {
+        ...baseContent,
+        ...(parsedContent || {}),
+      },
+      req.files || [],
+    );
+
+    const updateData = {
+      modelKey,
+      content: mergedContent,
+    };
+
+    if (title) {
+      updateData.title = title;
+    }
+
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+    }
+
+    const content = await Content.findOneAndUpdate(
+      { modelKey },
+      updateData,
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+
+    return res.status(200).json({
+      message: "Content saved successfully",
+      content,
     });
   } catch (error) {
     console.error(error);
