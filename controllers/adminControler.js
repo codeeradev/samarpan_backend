@@ -288,6 +288,25 @@ exports.updateService = async (req, res) => {
   }
 };
 
+exports.deleteService = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const service = await Service.findByIdAndDelete(id);
+
+    if (!service) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Service deleted successfully", service });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.addDoctor = async (req, res) => {
   try {
     const {
@@ -1121,5 +1140,71 @@ exports.getSettings = async (req, res) => {
       message: "Error fetching settings",
       error: error.message,
     });
+  }
+};
+
+exports.getAdminStaff = async (req, res) => {
+  try {
+    const staff = await User.find({ roleId: { $ne: [ROLES.USER, ROLES.GUEST] } }).select("-password");
+    return res.status(200).json({
+      message: "Staff retrieved successfully",
+      staff,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateStaffRoleAndPermissions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { roleId, permissions } = req.body;
+
+    if (roleId && ![ROLES.SUPER_ADMIN, ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST].includes(roleId)) {
+      return res.status(400).json({ message: "Invalid roleId" });
+    }
+
+    const updateData = {};
+    if (roleId) updateData.roleId = roleId;
+    if (permissions) updateData.permissions = parseJson(permissions);
+
+    const staff = await User.findOneAndUpdate(
+      { _id: id, roleId: { $nin: [ROLES.USER, ROLES.GUEST] } },
+      updateData,
+      { new: true }
+    ).select("-password");
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff member not found" });
+    }
+
+    return res.status(200).json({
+      message: "Staff role and permissions updated successfully",
+      staff,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const staff = await User.findOneAndDelete({
+      _id: id,
+      roleId: { $nin: [ROLES.USER, ROLES.GUEST] },
+    });
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff member not found" });
+    }
+
+    return res.status(200).json({ message: "Staff member deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 };

@@ -21,4 +21,8 @@ module.exports = {
   VIEW_BLOGS: "view_blogs",
   MANAGE_GALLERY: "manage_gallery",
   VIEW_GALLERY: "view_gallery",
+  VIEW_SETTINGS: "view_settings",
+  MANAGE_SETTINGS: "manage_settings",
+  VIEW_ADMIN_STAFF: "view_admin_staff",
+  MANAGE_ADMIN_STAFF: "manage_admin_staff",
 };

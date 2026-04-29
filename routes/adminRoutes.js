@@ -11,6 +11,7 @@ const {
   addService,
   getAllServices,
   updateService,
+  deleteService,
   addDoctor,
   getAllDoctors,
   updateDoctor,
@@ -33,12 +34,16 @@ const {
   getAllGallery,
   deleteGallery,
   getSettings,
-  updateSettings
+  updateSettings,
+  getAdminStaff,
+  updateStaffRoleAndPermissions,
+  deleteStaff,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
 router.post("/add-service", verifyToken, checkPermission(permisson.MANAGE_SERVICES), upload, addService);
 router.get("/get-all-services", verifyToken, checkPermission(permisson.VIEW_SERVICES), getAllServices);
+router.post("/delete-service/:id", verifyToken, checkPermission(permisson.MANAGE_SERVICES), deleteService);
 router.post("/update-services/:id", verifyToken, checkPermission(permisson.MANAGE_SERVICES), upload, updateService);
 router.post("/add-doctor", verifyToken, checkAdmin, upload, addDoctor);
 router.get("/get-all-doctors", verifyToken, checkPermission(permisson.VIEW_DOCTORS), getAllDoctors);
@@ -61,7 +66,9 @@ router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BL
 router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
 router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
-router.get("/get-settings", verifyToken, checkAdmin, getSettings);
-router.post("/update-settings", verifyToken, checkAdmin, updateSettings);
-
+router.get("/get-settings", verifyToken, checkPermission(permisson.VIEW_SETTINGS), checkAdmin, getSettings);
+router.post("/update-settings", verifyToken, checkPermission(permisson.MANAGE_SETTINGS), checkAdmin, updateSettings);
+router.get("/get-admin-staff", verifyToken, checkPermission(permisson.VIEW_ADMIN_STAFF), checkAdmin, getAdminStaff);
+router.post("/update-staff/:id", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, updateStaffRoleAndPermissions);
+router.post("/delete-staff/:id", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, deleteStaff);
 module.exports = router;
