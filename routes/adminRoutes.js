@@ -18,10 +18,7 @@ const {
   deleteDoctor,
   getAppointments,
   updateAppointment,
-  addReview,
   getAllReviews,
-  updateReview,
-  deleteReview,
   addShort,
   getAllShorts,
   updateShort,
@@ -35,6 +32,10 @@ const {
   deleteGallery,
   getContentByModelKey,
   upsertContent,
+  addPage,
+  getAllPages,
+  updatePage,
+  deletePage,
   getSettings,
   updateSettings,
   updateAdminAccount,
@@ -60,10 +61,7 @@ router.post("/delete-doctor/:id", verifyToken, checkAdmin, deleteDoctor);
 router.get("/get-appointments", verifyToken, getAppointments);
 router.post("/update-appointment/:id", verifyToken, updateAppointment);
 router.get("/get-dashboard", verifyToken, getDashboard);
-router.post("/add-review", verifyToken, checkPermission(permisson.MANAGE_REVIEWS), addReview);
 router.get("/get-all-reviews", verifyToken, checkPermission(permisson.VIEW_REVIEWS), getAllReviews);
-router.post("/update-review/:id", verifyToken, checkPermission(permisson.MANAGE_REVIEWS), updateReview);
-router.post("/delete-review/:id", verifyToken, checkPermission(permisson.MANAGE_REVIEWS), deleteReview);
 router.post("/add-short", verifyToken, checkPermission(permisson.MANAGE_SHORTS), addShort);
 router.get("/get-all-shorts", verifyToken, checkPermission(permisson.VIEW_SHORTS), getAllShorts);
 router.post("/update-short/:id", verifyToken, checkPermission(permisson.MANAGE_SHORTS), updateShort);
@@ -75,6 +73,10 @@ router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BL
 router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
 router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
+router.post("/add-page", verifyToken, checkAdmin, addPage);
+router.get("/get-all-pages", verifyToken, checkAdmin, getAllPages);
+router.post("/update-page/:id", verifyToken, checkAdmin, updatePage);
+router.post("/delete-page/:id", verifyToken, checkAdmin, deletePage);
 router.get("/get-content/:modelKey", verifyToken, checkAdmin, getContentByModelKey);
 router.post("/upsert-content", verifyToken, checkAdmin, upload.any, upsertContent);
 router.get("/get-settings", verifyToken, checkPermission(permisson.VIEW_SETTINGS), checkAdmin, getSettings);

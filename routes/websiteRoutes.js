@@ -8,6 +8,7 @@ const {
   getBlogs,
   getGallery,
   getContentByModelKey,
+  getPageBySlug,
   getSettings,
 } = require("../controllers/websiteController");
 
@@ -21,5 +22,6 @@ router.get("/get-shorts", getShorts);
 router.get("/get-blogs", getBlogs);
 router.get("/get-gallery", getGallery);
 router.get("/get-content/:modelKey", getContentByModelKey);
+router.get("/get-page/:slug", getPageBySlug);
 router.get("/get-settings", getSettings);
 module.exports = router;

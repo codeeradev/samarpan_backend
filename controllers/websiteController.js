@@ -1,14 +1,15 @@
 const Service = require("../models/service");
 const User = require("../models/user");
-const Review = require("../models/review");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Appointment = require("../models/appointment");
 const Content = require("../models/content");
+const Page = require("../models/page");
 const Setting = require("../models/setting");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
 const Gallery = require("../models/gallery");
+const { fetchGoogleReviews } = require("../utils/googleReviews");
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -227,15 +228,11 @@ exports.getDoctors = async (req, res) => {
 
 exports.getReviews = async (req, res) => {
   try {
-    const reviews = await Review.find({ isActive: true })
-      .select("-__v -isActive")
-      .sort({
-        sortOrder: 1,
-        createdAt: -1,
-      });
-    return res
-      .status(200)
-      .json({ message: "Reviews retrieved successfully", reviews });
+    const reviewsPayload = await fetchGoogleReviews();
+    return res.status(200).json({
+      message: "Google reviews retrieved successfully",
+      ...reviewsPayload,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
@@ -334,6 +331,34 @@ exports.getContentByModelKey = async (req, res) => {
     return res.status(200).json({
       message: "Content retrieved successfully",
       content,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getPageBySlug = async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug).toLowerCase();
+
+    if (!slug) {
+      return res.status(400).json({ message: "Slug is required" });
+    }
+
+    const page = await Page.findOne({
+      slug,
+      isActive: { $ne: false },
+      status: { $ne: "draft" },
+    });
+
+    if (!page) {
+      return res.status(404).json({ message: "Page not found" });
+    }
+
+    return res.status(200).json({
+      message: "Page retrieved successfully",
+      page,
     });
   } catch (error) {
     console.error(error);

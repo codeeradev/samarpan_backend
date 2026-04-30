@@ -5,12 +5,14 @@ const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
 const Content = require("../models/content");
+const Page = require("../models/page");
 const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
 const permisson = require("../constants/permisson");
 const { sendMail } = require("../config/nodemailer");
+const { fetchGoogleReviews } = require("../utils/googleReviews");
 
 const ROLE_MAP = {
   1: "SUPER_ADMIN",
@@ -55,6 +57,24 @@ const parseBoolean = (value) => {
   if (typeof value === "string") {
     if (value.toLowerCase() === "true") return true;
     if (value.toLowerCase() === "false") return false;
+  }
+
+  return undefined;
+};
+
+const slugify = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const normalizePageStatus = (value) => {
+  const status = normalizeText(value).toLowerCase();
+
+  if (status === "draft" || status === "published") {
+    return status;
   }
 
   return undefined;
@@ -865,7 +885,9 @@ exports.getDashboard = async (req, res) => {
       Service.countDocuments({}),
       Blog.countDocuments({}),
       Gallery.countDocuments({}),
-      Review.countDocuments({}),
+      fetchGoogleReviews()
+        .then((payload) => payload.reviews.length)
+        .catch(() => 0),
       Short.countDocuments({}),
       Appointment.countDocuments(patientScopeFilter),
       Appointment.countDocuments(appointmentScopeFilter),
@@ -1231,11 +1253,11 @@ exports.addReview = async (req, res) => {
 
 exports.getAllReviews = async (req, res) => {
   try {
-    const reviews = await Review.find().sort({ sortOrder: 1, createdAt: -1 });
-
-    return res
-      .status(200)
-      .json({ message: "Reviews retrieved successfully", reviews });
+    const reviewsPayload = await fetchGoogleReviews();
+    return res.status(200).json({
+      message: "Google reviews retrieved successfully",
+      ...reviewsPayload,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
@@ -1618,6 +1640,152 @@ exports.upsertContent = async (req, res) => {
     return res.status(200).json({
       message: "Content saved successfully",
       content,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addPage = async (req, res) => {
+  try {
+    const title = normalizeText(req.body.title);
+    const rawSlug = normalizeText(req.body.slug).toLowerCase();
+    const slug = rawSlug || slugify(title);
+    const content = typeof req.body.content === "string" ? req.body.content : "";
+    const seoInput = parseJson(req.body.seo) || req.body.seo || {};
+    const status =
+      normalizePageStatus(req.body.status) ||
+      (parseBoolean(req.body.isActive) === false ? "draft" : "published");
+    const metaTitle = normalizeText(req.body.metaTitle || seoInput.metaTitle);
+    const metaDescription = normalizeText(
+      req.body.metaDescription || seoInput.metaDescription,
+    );
+
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+
+    if (!slug) {
+      return res.status(400).json({ message: "Slug is required" });
+    }
+
+    const existingPage = await Page.findOne({ slug });
+    if (existingPage) {
+      return res.status(400).json({ message: "A page with this slug already exists" });
+    }
+
+    const page = await Page.create({
+      title,
+      slug,
+      content,
+      status,
+      isActive: status === "published",
+      seo: {
+        metaTitle,
+        metaDescription,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Page created successfully",
+      page,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllPages = async (req, res) => {
+  try {
+    const pages = await Page.find().sort({ updatedAt: -1 });
+    return res.status(200).json({
+      message: "Pages retrieved successfully",
+      pages,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updatePage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const title = normalizeText(req.body.title);
+    const rawSlug = normalizeText(req.body.slug).toLowerCase();
+    const slug = rawSlug || slugify(title);
+    const seoInput = parseJson(req.body.seo) || req.body.seo || {};
+    const requestedStatus = normalizePageStatus(req.body.status);
+    const isActive = parseBoolean(req.body.isActive);
+
+    const existingPage = await Page.findById(id);
+    if (!existingPage) {
+      return res.status(404).json({ message: "Page not found" });
+    }
+
+    const status =
+      requestedStatus ||
+      (isActive !== undefined
+        ? isActive
+          ? "published"
+          : "draft"
+        : existingPage.status ||
+          (existingPage.isActive === false ? "draft" : "published"));
+    const content =
+      typeof req.body.content === "string"
+        ? req.body.content
+        : existingPage.content;
+    const metaTitle = normalizeText(
+      req.body.metaTitle || seoInput.metaTitle || existingPage.seo?.metaTitle,
+    );
+    const metaDescription = normalizeText(
+      req.body.metaDescription ||
+        seoInput.metaDescription ||
+        existingPage.seo?.metaDescription,
+    );
+
+    if (slug && slug !== existingPage.slug) {
+      const duplicateSlug = await Page.findOne({ slug });
+      if (duplicateSlug) {
+        return res.status(400).json({ message: "A page with this slug already exists" });
+      }
+    }
+
+    existingPage.title = title || existingPage.title;
+    existingPage.slug = slug || existingPage.slug;
+    existingPage.content = content;
+    existingPage.status = status;
+    existingPage.isActive = status === "published";
+    existingPage.seo = {
+      metaTitle,
+      metaDescription,
+    };
+
+    const page = await existingPage.save();
+
+    return res.status(200).json({
+      message: "Page updated successfully",
+      page,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deletePage = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedPage = await Page.findByIdAndDelete(id);
+    if (!deletedPage) {
+      return res.status(404).json({ message: "Page not found" });
+    }
+
+    return res.status(200).json({
+      message: "Page deleted successfully",
     });
   } catch (error) {
     console.error(error);
