@@ -37,7 +37,6 @@ const blogSchema = new mongoose.Schema(
     shortDescription: {
       type: String,
       required: true,
-      maxlength: 300,
     },
 
     content: {

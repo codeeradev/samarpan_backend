@@ -18,7 +18,6 @@ const {
   deleteDoctor,
   getAppointments,
   updateAppointment,
-  getAllReviews,
   addShort,
   getAllShorts,
   updateShort,
@@ -61,7 +60,6 @@ router.post("/delete-doctor/:id", verifyToken, checkAdmin, deleteDoctor);
 router.get("/get-appointments", verifyToken, getAppointments);
 router.post("/update-appointment/:id", verifyToken, updateAppointment);
 router.get("/get-dashboard", verifyToken, getDashboard);
-router.get("/get-all-reviews", verifyToken, checkPermission(permisson.VIEW_REVIEWS), getAllReviews);
 router.post("/add-short", verifyToken, checkPermission(permisson.MANAGE_SHORTS), addShort);
 router.get("/get-all-shorts", verifyToken, checkPermission(permisson.VIEW_SHORTS), getAllShorts);
 router.post("/update-short/:id", verifyToken, checkPermission(permisson.MANAGE_SHORTS), updateShort);

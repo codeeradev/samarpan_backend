@@ -9,8 +9,6 @@ module.exports = {
   VIEW_SERVICES: "view_services",
   MANAGE_DOCTORS: "manage_doctors",
   VIEW_DOCTORS: "view_doctors",
-  MANAGE_REVIEWS: "manage_reviews",
-  VIEW_REVIEWS: "view_reviews",
   MANAGE_SHORTS: "manage_shorts",
   VIEW_SHORTS: "view_shorts",
   MANAGE_APPOINTMENTS: "manage_appointments",

@@ -18,9 +18,15 @@ const settingSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    whatsapp_number: {
+      type: String,
+      trim: true,
+      set: (v) => v ? v.replace(/[^\d+]/g, "") : v
+    },
     inquiry_mobile_number: {
       type: String,
       trim: true,
+      set: (v) => v ? v.replace(/[^\d+]/g, "") : v
     },
     address: {
       type: String,
@@ -46,6 +52,10 @@ const settingSchema = new mongoose.Schema(
     about_us: {
       type: String,
       default: true,
+    },
+    google_reviews: {
+      place_id: { type: String, trim: true },
+      api_key: { type: String, trim: true },
     },
     social_links: {
       facebook: { type: String, trim: true },

@@ -1251,19 +1251,6 @@ exports.addReview = async (req, res) => {
   }
 };
 
-exports.getAllReviews = async (req, res) => {
-  try {
-    const reviewsPayload = await fetchGoogleReviews();
-    return res.status(200).json({
-      message: "Google reviews retrieved successfully",
-      ...reviewsPayload,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
 exports.updateReview = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1796,7 +1783,7 @@ exports.deletePage = async (req, res) => {
 // post /admin/update-settings
 exports.updateSettings = async (req, res) => {
   try {
-   const {name, email, inquiry_email, mobile_number, inquiry_mobile_number, address, working_hours, password, contact_us, term_and_condition, privacy_policy, about_us, social_links} = req.body;
+   const {name, email, inquiry_email, mobile_number, inquiry_mobile_number, whatsapp_number, address, working_hours, password, contact_us, term_and_condition, privacy_policy, about_us, google_reviews, social_links} = req.body;
 
     const updateData = {};
     if (name) updateData.name = name;
@@ -1804,6 +1791,7 @@ exports.updateSettings = async (req, res) => {
     if (inquiry_email) updateData.inquiry_email = inquiry_email;
     if (mobile_number) updateData.mobile_number = mobile_number;
     if (inquiry_mobile_number) updateData.inquiry_mobile_number = inquiry_mobile_number;
+    if (whatsapp_number) updateData.whatsapp_number = whatsapp_number;
     if (address) updateData.address = address;
     if (working_hours) updateData.working_hours = working_hours;
     if (password) updateData.password = password;
@@ -1811,6 +1799,7 @@ exports.updateSettings = async (req, res) => {
     if (term_and_condition) updateData.term_and_condition = term_and_condition;
     if (privacy_policy) updateData.privacy_policy = privacy_policy;
     if (about_us) updateData.about_us = about_us;
+    if (google_reviews) updateData.google_reviews = parseJson(google_reviews);
     if (social_links) updateData.social_links = parseJson(social_links);
     const settings = await Setting.findOneAndUpdate(
       {},

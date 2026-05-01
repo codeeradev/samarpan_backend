@@ -1,10 +1,9 @@
-const GOOGLE_PLACE_ID =
-  process.env.GOOGLE_PLACE_ID || "ChIJHcqVl2wzEjkRuwleGvppVDI";
-const GOOGLE_REVIEW_FIELDS = "name,rating,reviews";
-const GOOGLE_PLACES_API_KEY =
-  process.env.GOOGLE_PLACES_API_KEY ||
-  process.env.GOOGLE_MAPS_API_KEY ||
-  "AIzaSyDxUrsUbdiRRIGFjreNUB98IsFXdC3tE48";
+const Setting = require("../models/setting");
+
+
+const GOOGLE_PLACE_ID = "ChIJHcqVl2wzEjkRuwleGvppVDI";
+
+const GOOGLE_PLACES_API_KEY ="AIzaSyDxUrsUbdiRRIGFjreNUB98IsFXdC3tE48";
 
 const normalizeGoogleReview = (review = {}, index = 0) => ({
   id:
@@ -22,13 +21,19 @@ const normalizeGoogleReview = (review = {}, index = 0) => ({
 });
 
 async function fetchGoogleReviews() {
+
+  const setting = await Setting.findOne().lean();
+
+  const GOOGLE_PLACE_ID = setting?.google_reviews?.place_id;
+  const GOOGLE_PLACES_API_KEY = setting?.google_reviews?.api_key;
+
   if (!GOOGLE_PLACES_API_KEY) {
     throw new Error("Google Places API key is not configured");
   }
 
   const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
   url.searchParams.set("place_id", GOOGLE_PLACE_ID);
-  url.searchParams.set("fields", GOOGLE_REVIEW_FIELDS);
+  url.searchParams.set("fields", "name,rating,reviews");
   url.searchParams.set("key", GOOGLE_PLACES_API_KEY);
 
   const response = await fetch(url.toString());
