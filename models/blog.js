@@ -37,6 +37,7 @@ const blogSchema = new mongoose.Schema(
     shortDescription: {
       type: String,
       required: true,
+      maxlength: [300, "Short description cannot exceed 300 characters"],
     },
 
     content: {

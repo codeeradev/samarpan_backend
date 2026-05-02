@@ -8,44 +8,67 @@ const router = express.Router();
 
 const {
   adminLogin,
+
   addService,
   getAllServices,
   updateService,
   deleteService,
+
   addDoctor,
   getAllDoctors,
   updateDoctor,
   deleteDoctor,
+
   getAppointments,
   updateAppointment,
+
   addShort,
   getAllShorts,
   updateShort,
   deleteShort,
+
   addBlog,
   getAllBlogs,
   updateBlog,
   deleteBlog,
+
   addGallery,
   getAllGallery,
   deleteGallery,
+
+  addCareer,
+  getAllCareers,
+  updateCareer,
+  deleteCareer,
+
   getContentByModelKey,
   upsertContent,
+
   addPage,
   getAllPages,
   updatePage,
   deletePage,
+
   getSettings,
   updateSettings,
+
   updateAdminAccount,
+
   addStaff,
   getAdminStaff,
   updateStaffRoleAndPermissions,
   deleteStaff,
+
   getAllPatients,
   updatePatient,
   dischargePatient,
+
   getDashboard,
+
+  addSpecialization,
+  updateSpecialization,
+  deleteSpecialization,
+  getAllSpecializations,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -71,6 +94,10 @@ router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BL
 router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
 router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
+router.post("/add-career", verifyToken, checkAdmin, addCareer);
+router.get("/get-all-careers", verifyToken, checkAdmin, getAllCareers);
+router.post("/update-career/:id", verifyToken, checkAdmin, updateCareer);
+router.post("/delete-career/:id", verifyToken, checkAdmin, deleteCareer);
 router.post("/add-page", verifyToken, checkAdmin, addPage);
 router.get("/get-all-pages", verifyToken, checkAdmin, getAllPages);
 router.post("/update-page/:id", verifyToken, checkAdmin, updatePage);
@@ -87,4 +114,10 @@ router.post("/delete-staff/:id", verifyToken, checkPermission(permisson.MANAGE_A
 router.get("/get-all-patients", verifyToken, checkPermission(permisson.VIEW_USERS), getAllPatients);
 router.post("/update-patient/:id", verifyToken, checkPermission(permisson.MANAGE_USERS), updatePatient);
 router.post("/discharge-patient/:id", verifyToken, checkPermission(permisson.MANAGE_USERS), dischargePatient);
+
+router.post("/add-specialization", verifyToken, checkAdmin, addSpecialization);
+router.post("/update-specialization/:id", verifyToken, checkAdmin, updateSpecialization);
+router.post("/delete-specialization/:id", verifyToken, checkAdmin, deleteSpecialization);
+router.get("/get-all-specializations", verifyToken, checkAdmin, getAllSpecializations);
+
 module.exports = router;

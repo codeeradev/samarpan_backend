@@ -5,9 +5,11 @@ const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
 const Content = require("../models/content");
+const Career = require("../models/career");
 const Page = require("../models/page");
 const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
+const Specialization = require("../models/specialization");
 const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
 const permisson = require("../constants/permisson");
@@ -80,6 +82,16 @@ const normalizePageStatus = (value) => {
   return undefined;
 };
 
+const normalizeCareerStatus = (value) => {
+  const status = normalizeText(value).toLowerCase();
+
+  if (status === "draft" || status === "open" || status === "closed") {
+    return status;
+  }
+
+  return undefined;
+};
+
 const serializeUser = (value) => {
   if (!value) {
     return value;
@@ -113,7 +125,10 @@ const mergeUploadedFilesIntoContent = (content, files) => {
   return mergedContent;
 };
 
-const dischargePatientFromAppointment = async (appointment, dischargedAt = new Date()) => {
+const dischargePatientFromAppointment = async (
+  appointment,
+  dischargedAt = new Date(),
+) => {
   if (!appointment?._id) {
     return null;
   }
@@ -149,6 +164,31 @@ const parseJson = (value) => {
   } catch {
     return undefined;
   }
+};
+
+const normalizeStringArray = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeText(item)).filter(Boolean);
+  }
+
+  const parsedValue = parseJson(value);
+  if (Array.isArray(parsedValue)) {
+    return parsedValue.map((item) => normalizeText(item)).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n/)
+      .map((item) => normalizeText(item))
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const normalizeSortOrder = (value) => {
+  const parsedValue = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isNaN(parsedValue) ? 0 : parsedValue;
 };
 
 const formatAppointmentDate = (value) => {
@@ -658,8 +698,7 @@ exports.updatePatient = async (req, res) => {
 
     if (!name || !phone || !address || !bloodGroup || !gender) {
       return res.status(400).json({
-        message:
-          "Name, phone, address, blood group and gender are required",
+        message: "Name, phone, address, blood group and gender are required",
       });
     }
 
@@ -756,7 +795,8 @@ exports.dischargePatient = async (req, res) => {
         medicalHistory: patient.medicalHistory ?? "",
         status: false,
         isActive: false,
-        dischargedAt: patient.dischargedAt || patient.completedAt || dischargedAt,
+        dischargedAt:
+          patient.dischargedAt || patient.completedAt || dischargedAt,
         appointmentDate: patient.appointmentDate,
         createdAt: patient.createdAt,
         updatedAt: patient.updatedAt,
@@ -857,7 +897,9 @@ exports.getDashboard = async (req, res) => {
     const last6MonthsStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     last6MonthsStart.setHours(0, 0, 0, 0);
 
-    const patientStatusFilter = { status: { $in: ["confirmed", "rescheduled", "completed"] } };
+    const patientStatusFilter = {
+      status: { $in: ["confirmed", "rescheduled", "completed"] },
+    };
     const patientScopeFilter = hasScope
       ? { $and: [scopeFilter, patientStatusFilter] }
       : patientStatusFilter;
@@ -924,7 +966,12 @@ exports.getDashboard = async (req, res) => {
       ]),
       Appointment.aggregate([
         ...(hasScope ? [{ $match: scopeFilter }] : []),
-        { $match: { ...patientStatusFilter, createdAt: { $gte: last6MonthsStart, $lte: weekEnd } } },
+        {
+          $match: {
+            ...patientStatusFilter,
+            createdAt: { $gte: last6MonthsStart, $lte: weekEnd },
+          },
+        },
         {
           $group: {
             _id: {
@@ -1417,6 +1464,21 @@ exports.addBlog = async (req, res) => {
       blog: newBlog,
     });
   } catch (error) {
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+
+      return res.status(400).json({
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    // duplicate slug error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Slug already exists",
+      });
+    }
     console.error(error);
     return res.status(500).json({ message: "Server error" });
   }
@@ -1455,6 +1517,7 @@ exports.updateBlog = async (req, res) => {
 
     const updatedBlog = await Blog.findByIdAndUpdate(id, updateData, {
       new: true,
+      runValidators: true,
     });
 
     if (!updatedBlog) {
@@ -1466,6 +1529,15 @@ exports.updateBlog = async (req, res) => {
       blog: updatedBlog,
     });
   } catch (error) {
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+
+      return res.status(400).json({
+        message: "Validation failed",
+        errors,
+      });
+    }
+
     console.error(error);
     return res.status(500).json({ message: "Server error" });
   }
@@ -1614,15 +1686,11 @@ exports.upsertContent = async (req, res) => {
       updateData.isActive = isActive;
     }
 
-    const content = await Content.findOneAndUpdate(
-      { modelKey },
-      updateData,
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      },
-    );
+    const content = await Content.findOneAndUpdate({ modelKey }, updateData, {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true,
+    });
 
     return res.status(200).json({
       message: "Content saved successfully",
@@ -1639,7 +1707,8 @@ exports.addPage = async (req, res) => {
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
     const slug = rawSlug || slugify(title);
-    const content = typeof req.body.content === "string" ? req.body.content : "";
+    const content =
+      typeof req.body.content === "string" ? req.body.content : "";
     const seoInput = parseJson(req.body.seo) || req.body.seo || {};
     const status =
       normalizePageStatus(req.body.status) ||
@@ -1659,7 +1728,9 @@ exports.addPage = async (req, res) => {
 
     const existingPage = await Page.findOne({ slug });
     if (existingPage) {
-      return res.status(400).json({ message: "A page with this slug already exists" });
+      return res
+        .status(400)
+        .json({ message: "A page with this slug already exists" });
     }
 
     const page = await Page.create({
@@ -1736,7 +1807,9 @@ exports.updatePage = async (req, res) => {
     if (slug && slug !== existingPage.slug) {
       const duplicateSlug = await Page.findOne({ slug });
       if (duplicateSlug) {
-        return res.status(400).json({ message: "A page with this slug already exists" });
+        return res
+          .status(400)
+          .json({ message: "A page with this slug already exists" });
       }
     }
 
@@ -1780,17 +1853,218 @@ exports.deletePage = async (req, res) => {
   }
 };
 
+exports.addCareer = async (req, res) => {
+  try {
+    const title = normalizeText(req.body.title);
+    const rawSlug = normalizeText(req.body.slug).toLowerCase();
+    const slug = rawSlug || slugify(title);
+    const status =
+      normalizeCareerStatus(req.body.status) ||
+      (parseBoolean(req.body.isActive) === false ? "draft" : "open");
+
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+
+    if (!slug) {
+      return res.status(400).json({ message: "Slug is required" });
+    }
+
+    const existingCareer = await Career.findOne({ slug });
+    if (existingCareer) {
+      return res
+        .status(400)
+        .json({ message: "A career with this slug already exists" });
+    }
+
+    const career = await Career.create({
+      title,
+      slug,
+      department: normalizeText(req.body.department),
+      location: normalizeText(req.body.location),
+      employmentType: normalizeText(req.body.employmentType),
+      experience: normalizeText(req.body.experience),
+      summary: normalizeText(req.body.summary),
+      description: normalizeText(req.body.description),
+      requirements: normalizeStringArray(req.body.requirements),
+      responsibilities: normalizeStringArray(req.body.responsibilities),
+      applyEmail: normalizeText(req.body.applyEmail),
+      applyLink: normalizeText(req.body.applyLink),
+      status,
+      sortOrder: normalizeSortOrder(req.body.sortOrder),
+      isActive: status !== "draft",
+    });
+
+    return res.status(201).json({
+      message: "Career created successfully",
+      career,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllCareers = async (req, res) => {
+  try {
+    const careers = await Career.find().sort({
+      sortOrder: 1,
+      updatedAt: -1,
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      message: "Careers retrieved successfully",
+      careers,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateCareer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existingCareer = await Career.findById(id);
+
+    if (!existingCareer) {
+      return res.status(404).json({ message: "Career not found" });
+    }
+
+    const hasField = (fieldName) =>
+      Object.prototype.hasOwnProperty.call(req.body, fieldName);
+
+    const title = hasField("title")
+      ? normalizeText(req.body.title)
+      : existingCareer.title;
+    const rawSlug = hasField("slug")
+      ? normalizeText(req.body.slug).toLowerCase()
+      : existingCareer.slug;
+    const slug = rawSlug || slugify(title);
+    const requestedStatus = normalizeCareerStatus(req.body.status);
+    const isActive = parseBoolean(req.body.isActive);
+    const status =
+      requestedStatus ||
+      (isActive !== undefined
+        ? isActive
+          ? "open"
+          : "draft"
+        : existingCareer.status || "open");
+
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+
+    if (!slug) {
+      return res.status(400).json({ message: "Slug is required" });
+    }
+
+    if (slug !== existingCareer.slug) {
+      const duplicateCareer = await Career.findOne({ slug });
+      if (duplicateCareer) {
+        return res
+          .status(400)
+          .json({ message: "A career with this slug already exists" });
+      }
+    }
+
+    existingCareer.title = title;
+    existingCareer.slug = slug;
+    existingCareer.department = hasField("department")
+      ? normalizeText(req.body.department)
+      : existingCareer.department;
+    existingCareer.location = hasField("location")
+      ? normalizeText(req.body.location)
+      : existingCareer.location;
+    existingCareer.employmentType = hasField("employmentType")
+      ? normalizeText(req.body.employmentType)
+      : existingCareer.employmentType;
+    existingCareer.experience = hasField("experience")
+      ? normalizeText(req.body.experience)
+      : existingCareer.experience;
+    existingCareer.summary = hasField("summary")
+      ? normalizeText(req.body.summary)
+      : existingCareer.summary;
+    existingCareer.description = hasField("description")
+      ? normalizeText(req.body.description)
+      : existingCareer.description;
+    existingCareer.requirements = hasField("requirements")
+      ? normalizeStringArray(req.body.requirements)
+      : existingCareer.requirements;
+    existingCareer.responsibilities = hasField("responsibilities")
+      ? normalizeStringArray(req.body.responsibilities)
+      : existingCareer.responsibilities;
+    existingCareer.applyEmail = hasField("applyEmail")
+      ? normalizeText(req.body.applyEmail)
+      : existingCareer.applyEmail;
+    existingCareer.applyLink = hasField("applyLink")
+      ? normalizeText(req.body.applyLink)
+      : existingCareer.applyLink;
+    existingCareer.status = status;
+    existingCareer.sortOrder = hasField("sortOrder")
+      ? normalizeSortOrder(req.body.sortOrder)
+      : existingCareer.sortOrder;
+    existingCareer.isActive = status !== "draft";
+
+    const career = await existingCareer.save();
+
+    return res.status(200).json({
+      message: "Career updated successfully",
+      career,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteCareer = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedCareer = await Career.findByIdAndDelete(id);
+    if (!deletedCareer) {
+      return res.status(404).json({ message: "Career not found" });
+    }
+
+    return res.status(200).json({
+      message: "Career deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // post /admin/update-settings
 exports.updateSettings = async (req, res) => {
   try {
-   const {name, email, inquiry_email, mobile_number, inquiry_mobile_number, whatsapp_number, address, working_hours, password, contact_us, term_and_condition, privacy_policy, about_us, google_reviews, social_links} = req.body;
+    const {
+      name,
+      email,
+      inquiry_email,
+      mobile_number,
+      inquiry_mobile_number,
+      whatsapp_number,
+      address,
+      working_hours,
+      password,
+      contact_us,
+      term_and_condition,
+      privacy_policy,
+      about_us,
+      google_reviews,
+      social_links,
+    } = req.body;
 
     const updateData = {};
     if (name) updateData.name = name;
     if (email) updateData.email = email;
     if (inquiry_email) updateData.inquiry_email = inquiry_email;
     if (mobile_number) updateData.mobile_number = mobile_number;
-    if (inquiry_mobile_number) updateData.inquiry_mobile_number = inquiry_mobile_number;
+    if (inquiry_mobile_number)
+      updateData.inquiry_mobile_number = inquiry_mobile_number;
     if (whatsapp_number) updateData.whatsapp_number = whatsapp_number;
     if (address) updateData.address = address;
     if (working_hours) updateData.working_hours = working_hours;
@@ -1805,7 +2079,7 @@ exports.updateSettings = async (req, res) => {
       {},
 
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     return res.status(200).json({
@@ -1922,8 +2196,16 @@ exports.updateAdminAccount = async (req, res) => {
 
 exports.addStaff = async (req, res) => {
   try {
-    const { name, email, password, phone, roleId, permissions, status, isActive } =
-      req.body;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      roleId,
+      permissions,
+      status,
+      isActive,
+    } = req.body;
 
     const normalizedName = normalizeText(name);
     const normalizedEmail = normalizeText(email).toLowerCase();
@@ -2016,12 +2298,13 @@ exports.updateStaffRoleAndPermissions = async (req, res) => {
 
     const updateData = {};
     if (parsedRoleId !== undefined) updateData.roleId = parsedRoleId;
-    if (permissions !== undefined) updateData.permissions = parseJson(permissions);
+    if (permissions !== undefined)
+      updateData.permissions = parseJson(permissions);
 
     const staff = await User.findOneAndUpdate(
       { _id: id, roleId: { $nin: [ROLES.USER, ROLES.GUEST] } },
       updateData,
-      { new: true }
+      { new: true },
     ).select("-password");
 
     if (!staff) {
@@ -2057,7 +2340,92 @@ exports.deleteStaff = async (req, res) => {
       return res.status(404).json({ message: "Staff member not found" });
     }
 
-    return res.status(200).json({ message: "Staff member deleted successfully" });
+    return res
+      .status(200)
+      .json({ message: "Staff member deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addSpecialization = async (req, res) => {
+  try {
+    const { name, sortOrder, isActive } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    const specialization = await Specialization.create({
+      name,
+      sortOrder: sortOrder !== undefined ? sortOrder : 0,
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    return res.status(201).json({
+      message: "Specialization added successfully",
+      specialization,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllSpecializations = async (req, res) => {
+  try {
+    const { isActive } = req.query;
+    const filter = isActive !== undefined ? { isActive: isActive } : {};
+    const specializations = await Specialization.find(filter).sort({ sortOrder: 1 });
+
+    return res.status(200).json({
+      message: "Specializations retrieved successfully",
+      specializations,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateSpecialization = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, sortOrder, isActive } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const specialization = await Specialization.findByIdAndUpdate(id, updateData, { new: true });
+
+    if (!specialization) {
+      return res.status(404).json({ message: "Specialization not found" });
+    }
+
+    return res.status(200).json({
+      message: "Specialization updated successfully",
+      specialization,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteSpecialization = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const specialization = await Specialization.findByIdAndDelete(id);
+
+    if (!specialization) {
+      return res.status(404).json({ message: "Specialization not found" });
+    }
+
+    return res.status(200).json({ message: "Specialization deleted successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

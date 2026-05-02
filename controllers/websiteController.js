@@ -4,6 +4,7 @@ const Short = require("../models/short");
 const Blog = require("../models/blog");
 const Appointment = require("../models/appointment");
 const Content = require("../models/content");
+const Career = require("../models/career");
 const Page = require("../models/page");
 const Setting = require("../models/setting");
 const ROLES = require("../constants/roles");
@@ -304,6 +305,46 @@ exports.getGallery = async (req, res) => {
     return res.status(200).json({
       message: "Gallery items retrieved successfully",
       gallery: galleryItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getCareers = async (req, res) => {
+  try {
+    const slug = normalizeText(req.query.slug).toLowerCase();
+
+    const filter = {
+      isActive: { $ne: false },
+      status: { $ne: "draft" },
+    };
+
+    if (slug) {
+      filter.slug = slug;
+    }
+
+    if (slug) {
+      const career = await Career.findOne(filter).select("-__v");
+
+      if (!career) {
+        return res.status(404).json({ message: "Career not found" });
+      }
+
+      return res.status(200).json({
+        message: "Career retrieved successfully",
+        career,
+      });
+    }
+
+    const careers = await Career.find(filter)
+      .select("-__v")
+      .sort({ sortOrder: 1, updatedAt: -1, createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Careers retrieved successfully",
+      careers,
     });
   } catch (error) {
     console.error(error);
