@@ -124,9 +124,9 @@ router.post("/add-specialization", verifyToken, checkAdmin, addSpecialization);
 router.post("/update-specialization/:id", verifyToken, checkAdmin, updateSpecialization);
 router.post("/delete-specialization/:id", verifyToken, checkAdmin, deleteSpecialization);
 router.get("/get-all-specializations", verifyToken, checkAdmin, getAllSpecializations);
-router.post("/add-honor", verifyToken, checkAdmin, addHonor);
+router.post("/add-honor", verifyToken, checkAdmin, upload, addHonor);
 router.get("/get-all-honors", verifyToken, checkAdmin, getAllHonors);
-router.post("/update-honor/:id", verifyToken, checkAdmin, updateHonor);
+router.post("/update-honor/:id", verifyToken, checkAdmin, upload, updateHonor);
 router.post("/delete-honor/:id", verifyToken, checkAdmin, deleteHonor);
 
 module.exports = router;

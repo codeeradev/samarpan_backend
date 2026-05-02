@@ -7,17 +7,7 @@ const honorSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    organization: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-    year: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-    description: {
+    image: {
       type: String,
       default: "",
       trim: true,

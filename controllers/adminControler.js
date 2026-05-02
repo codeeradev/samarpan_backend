@@ -2378,7 +2378,9 @@ exports.getAllSpecializations = async (req, res) => {
   try {
     const { isActive } = req.query;
     const filter = isActive !== undefined ? { isActive: isActive } : {};
-    const specializations = await Specialization.find(filter).sort({ sortOrder: 1 });
+    const specializations = await Specialization.find(filter).sort({
+      sortOrder: 1,
+    });
 
     return res.status(200).json({
       message: "Specializations retrieved successfully",
@@ -2400,7 +2402,11 @@ exports.updateSpecialization = async (req, res) => {
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isActive !== undefined) updateData.isActive = isActive;
 
-    const specialization = await Specialization.findByIdAndUpdate(id, updateData, { new: true });
+    const specialization = await Specialization.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true },
+    );
 
     if (!specialization) {
       return res.status(404).json({ message: "Specialization not found" });
@@ -2426,7 +2432,9 @@ exports.deleteSpecialization = async (req, res) => {
       return res.status(404).json({ message: "Specialization not found" });
     }
 
-    return res.status(200).json({ message: "Specialization deleted successfully" });
+    return res
+      .status(200)
+      .json({ message: "Specialization deleted successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
@@ -2435,30 +2443,20 @@ exports.deleteSpecialization = async (req, res) => {
 
 exports.addHonor = async (req, res) => {
   try {
-    const title = normalizeText(req.body.title);
-    const organization = normalizeText(req.body.organization);
-    const year = normalizeText(req.body.year);
-    const description = normalizeText(req.body.description);
-    const sortOrder =
-      req.body.sortOrder !== undefined ? Number(req.body.sortOrder) : 0;
-    const isActive = parseBoolean(req.body.isActive);
+    const { title, sortOrder, isActive } = req.body;
+
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
 
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
 
-    if (Number.isNaN(sortOrder) || sortOrder < 0) {
-      return res
-        .status(400)
-        .json({ message: "Sort order must be 0 or greater" });
-    }
-
     const honor = await Honor.create({
       title,
-      organization,
-      year,
-      description,
-      sortOrder,
+      image,
+      sortOrder: sortOrder !== undefined ? sortOrder : 0,
       isActive: isActive !== undefined ? isActive : true,
     });
 
@@ -2508,27 +2506,12 @@ exports.updateHonor = async (req, res) => {
       updateData.title = title;
     }
 
-    if (req.body.organization !== undefined) {
-      updateData.organization = normalizeText(req.body.organization);
-    }
-
-    if (req.body.year !== undefined) {
-      updateData.year = normalizeText(req.body.year);
-    }
-
-    if (req.body.description !== undefined) {
-      updateData.description = normalizeText(req.body.description);
+    if (req.files?.image?.[0]?.filename) {
+      updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
     }
 
     if (req.body.sortOrder !== undefined) {
       const sortOrder = Number(req.body.sortOrder);
-
-      if (Number.isNaN(sortOrder) || sortOrder < 0) {
-        return res
-          .status(400)
-          .json({ message: "Sort order must be 0 or greater" });
-      }
-
       updateData.sortOrder = sortOrder;
     }
 
