@@ -10,6 +10,7 @@ const Page = require("../models/page");
 const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const Specialization = require("../models/specialization");
+const Honor = require("../models/honor");
 const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
 const permisson = require("../constants/permisson");
@@ -2426,6 +2427,143 @@ exports.deleteSpecialization = async (req, res) => {
     }
 
     return res.status(200).json({ message: "Specialization deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addHonor = async (req, res) => {
+  try {
+    const title = normalizeText(req.body.title);
+    const organization = normalizeText(req.body.organization);
+    const year = normalizeText(req.body.year);
+    const description = normalizeText(req.body.description);
+    const sortOrder =
+      req.body.sortOrder !== undefined ? Number(req.body.sortOrder) : 0;
+    const isActive = parseBoolean(req.body.isActive);
+
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+
+    if (Number.isNaN(sortOrder) || sortOrder < 0) {
+      return res
+        .status(400)
+        .json({ message: "Sort order must be 0 or greater" });
+    }
+
+    const honor = await Honor.create({
+      title,
+      organization,
+      year,
+      description,
+      sortOrder,
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    return res.status(201).json({
+      message: "Honor added successfully",
+      honor,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllHonors = async (req, res) => {
+  try {
+    const isActive = parseBoolean(req.query.isActive);
+    const filter = isActive !== undefined ? { isActive } : {};
+    const honors = await Honor.find(filter).sort({
+      sortOrder: 1,
+      updatedAt: -1,
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      message: "Honors retrieved successfully",
+      honors,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateHonor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updateData = {};
+
+    if (req.body.title !== undefined) {
+      const title = normalizeText(req.body.title);
+
+      if (!title) {
+        return res.status(400).json({ message: "Title is required" });
+      }
+
+      updateData.title = title;
+    }
+
+    if (req.body.organization !== undefined) {
+      updateData.organization = normalizeText(req.body.organization);
+    }
+
+    if (req.body.year !== undefined) {
+      updateData.year = normalizeText(req.body.year);
+    }
+
+    if (req.body.description !== undefined) {
+      updateData.description = normalizeText(req.body.description);
+    }
+
+    if (req.body.sortOrder !== undefined) {
+      const sortOrder = Number(req.body.sortOrder);
+
+      if (Number.isNaN(sortOrder) || sortOrder < 0) {
+        return res
+          .status(400)
+          .json({ message: "Sort order must be 0 or greater" });
+      }
+
+      updateData.sortOrder = sortOrder;
+    }
+
+    const isActive = parseBoolean(req.body.isActive);
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+    }
+
+    const honor = await Honor.findByIdAndUpdate(id, updateData, { new: true });
+
+    if (!honor) {
+      return res.status(404).json({ message: "Honor not found" });
+    }
+
+    return res.status(200).json({
+      message: "Honor updated successfully",
+      honor,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteHonor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const honor = await Honor.findByIdAndDelete(id);
+
+    if (!honor) {
+      return res.status(404).json({ message: "Honor not found" });
+    }
+
+    return res.status(200).json({ message: "Honor deleted successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

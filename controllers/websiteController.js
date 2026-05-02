@@ -7,6 +7,7 @@ const Content = require("../models/content");
 const Career = require("../models/career");
 const Page = require("../models/page");
 const Setting = require("../models/setting");
+const Honor = require("../models/honor");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
 const Gallery = require("../models/gallery");
@@ -345,6 +346,22 @@ exports.getCareers = async (req, res) => {
     return res.status(200).json({
       message: "Careers retrieved successfully",
       careers,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getHonors = async (req, res) => {
+  try {
+    const honors = await Honor.find({ isActive: true })
+      .select("-__v -isActive")
+      .sort({ sortOrder: 1, updatedAt: -1, createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Honors retrieved successfully",
+      honors,
     });
   } catch (error) {
     console.error(error);
