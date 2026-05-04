@@ -16,6 +16,7 @@ const ROLES = require("../constants/roles");
 const permisson = require("../constants/permisson");
 const { sendMail } = require("../config/nodemailer");
 const { fetchGoogleReviews } = require("../utils/googleReviews");
+const Theme = require("../models/theme");
 
 const ROLE_MAP = {
   1: "SUPER_ADMIN",
@@ -2547,6 +2548,58 @@ exports.deleteHonor = async (req, res) => {
     }
 
     return res.status(200).json({ message: "Honor deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.upsertTheme = async (req, res) => {
+  try {
+    const { name } = req.query; // website / panel
+    const { colors } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Theme name is required" });
+    }
+
+    const updateData = {};
+
+    if (colors) updateData.colors = colors;
+
+    const theme = await Theme.findOneAndUpdate(
+      { name }, // 🔑 identify doc
+      { $set: updateData },
+      {
+        new: true,
+        upsert: true, // 🔥 create if not exists
+      }
+    );
+
+    return res.status(200).json({
+      message: "Theme upserted successfully",
+      theme,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getThemes = async (req, res) => {
+  try {
+    const { name } = req.query
+
+       if (!name) {
+      return res.status(400).json({ message: "Theme name is required" });
+    }
+
+    const themes = await Theme.find({name});
+
+    return res.status(200).json({
+      message: "Themes retrieved successfully",
+      themes,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

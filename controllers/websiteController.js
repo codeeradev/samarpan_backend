@@ -12,6 +12,7 @@ const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
 const Gallery = require("../models/gallery");
 const { fetchGoogleReviews } = require("../utils/googleReviews");
+const Theme = require("../models/theme")
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -430,6 +431,20 @@ exports.getSettings = async (req, res) => {
     return res
       .status(200)
       .json({ message: "Settings retrieved successfully", settings });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getTheme = async (req, res) => {
+  try {
+    const themes = await Theme.findOne({name: "website" });
+
+    return res.status(200).json({
+      message: "Themes retrieved successfully",
+      themes,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

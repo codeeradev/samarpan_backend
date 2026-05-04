@@ -74,6 +74,10 @@ const {
   getAllHonors,
   updateHonor,
   deleteHonor,
+
+  upsertTheme,
+  getThemes,
+
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -129,4 +133,6 @@ router.get("/get-all-honors", verifyToken, checkAdmin, getAllHonors);
 router.post("/update-honor/:id", verifyToken, checkAdmin, upload, updateHonor);
 router.post("/delete-honor/:id", verifyToken, checkAdmin, deleteHonor);
 
+router.post("/upsert-theme", verifyToken, checkAdmin, upsertTheme);
+router.get("/get-themes", verifyToken, checkAdmin, getThemes);
 module.exports = router;
