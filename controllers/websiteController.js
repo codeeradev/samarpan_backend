@@ -357,7 +357,7 @@ exports.getCareers = async (req, res) => {
 exports.getHonors = async (req, res) => {
   try {
     const honors = await Honor.find({ isActive: true })
-      .select("title imageUrl")
+      .select("title image")
       .sort({ sortOrder: 1, updatedAt: -1, createdAt: -1 });
 
     return res.status(200).json({
