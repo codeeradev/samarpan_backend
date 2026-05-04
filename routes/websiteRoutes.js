@@ -30,4 +30,5 @@ router.get("/get-content/:modelKey", getContentByModelKey);
 router.get("/get-page/:slug", getPageBySlug);
 router.get("/get-settings", getSettings);
 router.get("/get-theme", getTheme)
+
 module.exports = router;
