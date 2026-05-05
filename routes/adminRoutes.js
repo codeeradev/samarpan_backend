@@ -118,7 +118,7 @@ router.post("/delete-page/:id", verifyToken, checkAdmin, deletePage);
 router.get("/get-content/:modelKey", verifyToken, checkAdmin, getContentByModelKey);
 router.post("/upsert-content", verifyToken, checkAdmin, upload.any, upsertContent);
 router.get("/get-settings", verifyToken, checkPermission(permisson.VIEW_SETTINGS), checkAdmin, getSettings);
-router.post("/update-settings", verifyToken, checkPermission(permisson.MANAGE_SETTINGS), checkAdmin, updateSettings);
+router.post("/update-settings", verifyToken, checkPermission(permisson.MANAGE_SETTINGS), checkAdmin, upload, updateSettings);
 router.post("/update-admin-account", verifyToken, updateAdminAccount);
 router.post("/add-staff", verifyToken, checkPermission(permisson.MANAGE_ADMIN_STAFF), checkAdmin, addStaff);
 router.get("/get-admin-staff", verifyToken, checkPermission(permisson.VIEW_ADMIN_STAFF), checkAdmin, getAdminStaff);

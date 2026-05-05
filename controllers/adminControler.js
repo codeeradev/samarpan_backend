@@ -2105,6 +2105,11 @@ exports.updateSettings = async (req, res) => {
     if (about_us) updateData.about_us = about_us;
     if (google_reviews) updateData.google_reviews = parseJson(google_reviews);
     if (social_links) updateData.social_links = parseJson(social_links);
+
+    if(req.files.image[0]?.filename){
+      updateData.website_logo = `/assets/uploads/${req.files.image[0].filename}`;
+    }
+    
     const settings = await Setting.findOneAndUpdate(
       {},
 

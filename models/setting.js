@@ -64,6 +64,7 @@ const settingSchema = new mongoose.Schema(
       instagram: { type: String, trim: true },
       call: { type: String, trim: true },
     },
+    website_logo:String,
   },
   { timestamps: true },
 );

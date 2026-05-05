@@ -432,7 +432,7 @@ exports.getPageBySlug = async (req, res) => {
 
 exports.getSettings = async (req, res) => {
   try {
-    const settings = await Setting.findOne().select("inquiry_email inquiry_mobile_number address working_hours contact_us term_and_condition privacy_policy about_us social_links whatsapp_number").lean();
+    const settings = await Setting.findOne().select("inquiry_email inquiry_mobile_number address working_hours contact_us term_and_condition privacy_policy about_us social_links whatsapp_number website_logo").lean();
     return res
       .status(200)
       .json({ message: "Settings retrieved successfully", settings });
