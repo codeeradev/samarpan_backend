@@ -38,11 +38,11 @@ const colorGroupSchema = {
     ring: String,
   },
   charts: {
-    "1": String,
-    "2": String,
-    "3": String,
-    "4": String,
-    "5": String,
+    1: String,
+    2: String,
+    3: String,
+    4: String,
+    5: String,
   },
 };
 
@@ -64,13 +64,16 @@ const themeSchema = new mongoose.Schema(
       unique: true,
     },
 
+    logo: String,
+    favicon: String,
+
     // Only one will be used depending on name
     colors: {
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Theme", themeSchema);

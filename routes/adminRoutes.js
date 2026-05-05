@@ -137,6 +137,6 @@ router.get("/get-all-honors", verifyToken, checkAdmin, getAllHonors);
 router.post("/update-honor/:id", verifyToken, checkAdmin, upload, updateHonor);
 router.post("/delete-honor/:id", verifyToken, checkAdmin, deleteHonor);
 
-router.post("/upsert-theme", verifyToken, checkAdmin, upsertTheme);
+router.post("/upsert-theme", verifyToken, checkAdmin, upload, upsertTheme);
 router.get("/get-themes", verifyToken, checkAdmin, getThemes);
 module.exports = router;

@@ -1592,9 +1592,13 @@ exports.updateGallery = async (req, res) => {
     const { id } = req.params;
     const { caption } = req.body;
 
-    const updatedGallery = await Gallery.findByIdAndUpdate(id, {caption}, {
-      new: true,
-    });
+    const updatedGallery = await Gallery.findByIdAndUpdate(
+      id,
+      { caption },
+      {
+        new: true,
+      },
+    );
 
     if (!updatedGallery) {
       return res.status(404).json({ message: "Gallery image not found" });
@@ -2581,7 +2585,11 @@ exports.deleteHonor = async (req, res) => {
 exports.upsertTheme = async (req, res) => {
   try {
     const { name } = req.query;
-    const { colors } = req.body;
+    let { colors } = req.body;
+
+    if (typeof colors === "string") {
+      colors = JSON.parse(colors);
+    }
 
     if (!name || !["website", "panel"].includes(name)) {
       return res.status(400).json({ message: "Invalid theme name" });
@@ -2617,11 +2625,7 @@ exports.upsertTheme = async (req, res) => {
         const value = obj[key];
         const newKey = prefix ? `${prefix}.${key}` : key;
 
-        if (
-          value &&
-          typeof value === "object" &&
-          !Array.isArray(value)
-        ) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
           Object.assign(result, flattenObject(value, newKey));
         } else {
           result[newKey] = value;
@@ -2638,13 +2642,21 @@ exports.upsertTheme = async (req, res) => {
       updateData[`colors.${key}`] = flatColors[key];
     });
 
+    if (req.files?.logo?.[0]?.filename) {
+      updateData.logo = `/assets/uploads/${req.files.logo[0].filename}`;
+    }
+
+    if (req.files?.favicon?.[0]?.filename) {
+      updateData.favicon = `/assets/uploads/${req.files.favicon[0].filename}`;
+    }
+
     const theme = await Theme.findOneAndUpdate(
       { name },
       { $set: updateData },
       {
         new: true,
         upsert: true,
-      }
+      },
     );
 
     return res.status(200).json({
@@ -2659,13 +2671,13 @@ exports.upsertTheme = async (req, res) => {
 
 exports.getThemes = async (req, res) => {
   try {
-    const { name } = req.query
+    const { name } = req.query;
 
-       if (!name) {
+    if (!name) {
       return res.status(400).json({ message: "Theme name is required" });
     }
 
-    const themes = await Theme.find({name});
+    const themes = await Theme.find({ name });
 
     return res.status(200).json({
       message: "Themes retrieved successfully",
