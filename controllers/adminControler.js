@@ -1566,6 +1566,7 @@ exports.deleteBlog = async (req, res) => {
 
 exports.addGallery = async (req, res) => {
   try {
+    const { caption } = req.body;
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
       : null;
@@ -1574,7 +1575,7 @@ exports.addGallery = async (req, res) => {
       return res.status(400).json({ message: "Gallery image is required" });
     }
 
-    const galleryItem = await Gallery.create({ image });
+    const galleryItem = await Gallery.create({ image, caption });
 
     return res.status(201).json({
       message: "Gallery image added successfully",
