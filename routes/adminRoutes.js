@@ -33,6 +33,7 @@ const {
   deleteBlog,
 
   addGallery,
+  updateGallery,
   getAllGallery,
   deleteGallery,
 
@@ -100,9 +101,12 @@ router.post("/add-blog", verifyToken, checkPermission(permisson.MANAGE_BLOGS), u
 router.get("/get-all-blogs", verifyToken, checkPermission(permisson.VIEW_BLOGS), getAllBlogs);
 router.post("/update-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BLOGS), upload, updateBlog);
 router.post("/delete-blog/:id", verifyToken, checkPermission(permisson.MANAGE_BLOGS), deleteBlog);
+
 router.post("/add-gallery", verifyToken, checkPermission(permisson.MANAGE_GALLERY), upload, addGallery);
+router.post("/update-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), updateGallery);
 router.get("/get-all-gallery", verifyToken, checkPermission(permisson.VIEW_GALLERY), getAllGallery);
 router.post("/delete-gallery/:id", verifyToken, checkPermission(permisson.MANAGE_GALLERY), deleteGallery);
+
 router.post("/add-career", verifyToken, checkAdmin, addCareer);
 router.get("/get-all-careers", verifyToken, checkAdmin, getAllCareers);
 router.post("/update-career/:id", verifyToken, checkAdmin, updateCareer);

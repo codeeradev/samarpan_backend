@@ -24,6 +24,7 @@ const upload = multer({ storage });
 
 const uploadFields = upload.fields([
   { name: "image", maxCount: 1 },
+  { name: "logo", maxCount: 1 },
   { name: "bannerImage", maxCount: 2 },
   { name: "icon", maxCount: 1 },
 ]);

@@ -1587,6 +1587,29 @@ exports.addGallery = async (req, res) => {
   }
 };
 
+exports.updateGallery = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { caption } = req.body;
+
+    const updatedGallery = await Gallery.findByIdAndUpdate(id, {caption}, {
+      new: true,
+    });
+
+    if (!updatedGallery) {
+      return res.status(404).json({ message: "Gallery image not found" });
+    }
+
+    return res.status(200).json({
+      message: "Gallery image updated successfully",
+      gallery: updatedGallery,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.getAllGallery = async (req, res) => {
   try {
     const galleryItems = await Gallery.find().sort({ createdAt: -1 });
