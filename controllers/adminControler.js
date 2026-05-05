@@ -2556,23 +2556,70 @@ exports.deleteHonor = async (req, res) => {
 
 exports.upsertTheme = async (req, res) => {
   try {
-    const { name } = req.query; // website / panel
+    const { name } = req.query;
     const { colors } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ message: "Theme name is required" });
+    if (!name || !["website", "panel"].includes(name)) {
+      return res.status(400).json({ message: "Invalid theme name" });
     }
 
-    const updateData = {};
+    if (!colors || typeof colors !== "object") {
+      return res.status(400).json({ message: "Colors must be an object" });
+    }
 
-    if (colors) updateData.colors = colors;
+    // ✅ WEBSITE KEY RESTRICTION
+    if (name === "website") {
+      const allowedKeys = [
+        "primary",
+        "primary_deep",
+        "primary_light",
+        "primary_soft",
+      ];
+
+      for (const key of Object.keys(colors)) {
+        if (!allowedKeys.includes(key)) {
+          return res.status(400).json({
+            message: `Invalid key "${key}" for website theme`,
+          });
+        }
+      }
+    }
+
+    // 🔥 PARTIAL UPDATE (dot notation)
+    const flattenObject = (obj, prefix = "") => {
+      let result = {};
+
+      for (let key in obj) {
+        const value = obj[key];
+        const newKey = prefix ? `${prefix}.${key}` : key;
+
+        if (
+          value &&
+          typeof value === "object" &&
+          !Array.isArray(value)
+        ) {
+          Object.assign(result, flattenObject(value, newKey));
+        } else {
+          result[newKey] = value;
+        }
+      }
+
+      return result;
+    };
+
+    const flatColors = flattenObject(colors);
+
+    const updateData = {};
+    Object.keys(flatColors).forEach((key) => {
+      updateData[`colors.${key}`] = flatColors[key];
+    });
 
     const theme = await Theme.findOneAndUpdate(
-      { name }, // 🔑 identify doc
+      { name },
       { $set: updateData },
       {
         new: true,
-        upsert: true, // 🔥 create if not exists
+        upsert: true,
       }
     );
 
