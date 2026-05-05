@@ -261,11 +261,16 @@ exports.getShorts = async (req, res) => {
 
 exports.getBlogs = async (req, res) => {
   try {
-    const { slug } = req.query;
+    const { slug, type } = req.query;
 
     const filter = { status: "published" };
+    let limit = 0;
     if (slug) {
       filter.slug = slug;
+    }
+
+    if(type === "home" ){
+    limit = 6;
     }
 
     // 👉 SINGLE BLOG
@@ -286,7 +291,7 @@ exports.getBlogs = async (req, res) => {
 
     // 👉 ALL BLOGS
     const blogs = await Blog.find(filter)
-      .populate("serviceId", "title")
+      .populate("serviceId", "title").limit(limit)
       .select("-__v")
       .sort({ createdAt: -1 });
 
