@@ -79,6 +79,10 @@ const {
   upsertTheme,
   getThemes,
 
+  addProcedure,
+  updateProcedure,
+  deleteProcedure,
+  getProcedure,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin)
@@ -139,4 +143,10 @@ router.post("/delete-honor/:id", verifyToken, checkAdmin, deleteHonor);
 
 router.post("/upsert-theme", verifyToken, checkAdmin, upload, upsertTheme);
 router.get("/get-themes", verifyToken, checkAdmin, getThemes);
+
+router.post("/add-procedure", verifyToken, checkAdmin, upload, addProcedure);
+router.post("/update-procedure/:id", verifyToken, checkAdmin, upload, updateProcedure);
+router.post("/delete-procedure/:id", verifyToken, checkAdmin, deleteProcedure);
+router.get("/get-procedure", verifyToken, checkAdmin, getProcedure);
+
 module.exports = router;

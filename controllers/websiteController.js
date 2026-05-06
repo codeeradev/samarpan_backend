@@ -11,8 +11,9 @@ const Honor = require("../models/honor");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
 const Gallery = require("../models/gallery");
+const Procedure = require("../models/cosmeticProcedure");
 const { fetchGoogleReviews } = require("../utils/googleReviews");
-const Theme = require("../models/theme")
+const Theme = require("../models/theme");
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -269,8 +270,8 @@ exports.getBlogs = async (req, res) => {
       filter.slug = slug;
     }
 
-    if(type === "home" ){
-    limit = 6;
+    if (type === "home") {
+      limit = 6;
     }
 
     // 👉 SINGLE BLOG
@@ -291,7 +292,8 @@ exports.getBlogs = async (req, res) => {
 
     // 👉 ALL BLOGS
     const blogs = await Blog.find(filter)
-      .populate("serviceId", "title").limit(limit)
+      .populate("serviceId", "title")
+      .limit(limit)
       .select("-__v")
       .sort({ createdAt: -1 });
 
@@ -307,7 +309,9 @@ exports.getBlogs = async (req, res) => {
 
 exports.getGallery = async (req, res) => {
   try {
-    const galleryItems = await Gallery.find().select("-__v").sort({ createdAt: -1 });
+    const galleryItems = await Gallery.find()
+      .select("-__v")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       message: "Gallery items retrieved successfully",
@@ -432,7 +436,11 @@ exports.getPageBySlug = async (req, res) => {
 
 exports.getSettings = async (req, res) => {
   try {
-    const settings = await Setting.findOne().select("inquiry_email inquiry_mobile_number address working_hours contact_us term_and_condition privacy_policy about_us social_links whatsapp_number website_logo").lean();
+    const settings = await Setting.findOne()
+      .select(
+        "inquiry_email inquiry_mobile_number address working_hours contact_us term_and_condition privacy_policy about_us social_links whatsapp_number website_logo",
+      )
+      .lean();
     return res
       .status(200)
       .json({ message: "Settings retrieved successfully", settings });
@@ -444,11 +452,37 @@ exports.getSettings = async (req, res) => {
 
 exports.getTheme = async (req, res) => {
   try {
-    const themes = await Theme.findOne({name: "website" });
+    const themes = await Theme.findOne({ name: "website" });
 
     return res.status(200).json({
       message: "Themes retrieved successfully",
       themes,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getActiveProcedure = async (req, res) => {
+  try {
+    const slug = normalizeText(req.query.slug).toLowerCase();
+
+    const filter = {
+      isActive: { $ne: false },
+    };
+
+    if (slug) {
+      filter.slug = slug;
+    }
+
+    const Procedures = await Procedure.find(filter).sort({
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      message: "Procedures retrieved successfully",
+      Procedures,
     });
   } catch (error) {
     console.error(error);

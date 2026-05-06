@@ -17,7 +17,7 @@ const permisson = require("../constants/permisson");
 const { sendMail } = require("../config/nodemailer");
 const { fetchGoogleReviews } = require("../utils/googleReviews");
 const Theme = require("../models/theme");
-
+const Procedure = require("../models/cosmeticProcedure");
 const ROLE_MAP = {
   1: "SUPER_ADMIN",
   2: "DOCTOR",
@@ -2106,10 +2106,10 @@ exports.updateSettings = async (req, res) => {
     if (google_reviews) updateData.google_reviews = parseJson(google_reviews);
     if (social_links) updateData.social_links = parseJson(social_links);
 
-    if(req.files.image[0]?.filename){
+    if (req.files.image[0]?.filename) {
       updateData.website_logo = `/assets/uploads/${req.files.image[0].filename}`;
     }
-    
+
     const settings = await Setting.findOneAndUpdate(
       {},
 
@@ -2690,6 +2690,142 @@ exports.getThemes = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addProcedure = async (req, res) => {
+  try {
+    const { title, slug, seo, content, sortOrder, isActive } = req.body;
+
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
+    let parsedSeo = seo;
+
+    if (typeof seo === "string") {
+      parsedSeo = JSON.parse(seo);
+    }
+
+    const procedure = await Procedure.create({
+      title,
+      slug,
+      image,
+      content,
+      seo: parsedSeo,
+      sortOrder,
+      isActive,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Procedure added successfully",
+      procedure,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateProcedure = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { title, slug, seo, content, sortOrder, isActive } = req.body;
+
+    const updateData = {};
+
+    // text fields
+    if (title !== undefined) {
+      updateData.title = title;
+    }
+
+    if (slug !== undefined) {
+      updateData.slug = slug;
+    }
+
+    if (content !== undefined) {
+      updateData.content = content;
+    }
+
+    // number field
+    if (sortOrder !== undefined) {
+      updateData.sortOrder = Number(sortOrder);
+    }
+
+    // boolean field
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+    }
+
+    // seo parse
+    if (seo !== undefined) {
+      updateData.seo = typeof seo === "string" ? JSON.parse(seo) : seo;
+    }
+
+    // image update
+    if (req.files?.image?.[0]?.filename) {
+      updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
+    }
+
+    const procedure = await Procedure.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!procedure) {
+      return res.status(404).json({
+        success: false,
+        message: "Procedure not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Procedure updated successfully",
+      procedure,
+    });
+  } catch (error) {
+    console.log(error);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Slug already exists",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+exports.deleteProcedure = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await Procedure.delete(id);
+
+    return res.status(200).json({ message: "Procedure Deleted" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getProcedure = async (req, res) => {
+  try {
+    const Procedures = await Procedure.find().sort({
+      createdAt: -1,
+    });
+
+    return res.json(Procedures);
+  } catch (error) {
+    console.log(error);
     return res.status(500).json({ message: "Server error" });
   }
 };
