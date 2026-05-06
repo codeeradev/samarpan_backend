@@ -468,17 +468,33 @@ exports.getActiveProcedure = async (req, res) => {
   try {
     const slug = normalizeText(req.query.slug).toLowerCase();
 
-    const filter = {
-      isActive: { $ne: false },
-    };
+    const { type } = req.query;
 
-    if (slug) {
-      filter.slug = slug;
+    if (type === "home") {
+      limit = 6;
+    }
+    else{
+      limit = 0
     }
 
-    const Procedures = await Procedure.find(filter).sort({
-      createdAt: -1,
-    });
+    if (slug) {
+      const Procedures = await Procedure.findOne({
+        isActive: { $ne: false },
+      }).sort({
+        createdAt: -1,
+      });
+
+      return res.status(200).json({
+        message: "Procedures retrieved successfully",
+        Procedures,
+      });
+    }
+
+    const Procedures = await Procedure.find({ isActive: { $ne: false } })
+      .limit(limit)
+      .sort({
+        createdAt: -1,
+      });
 
     return res.status(200).json({
       message: "Procedures retrieved successfully",
