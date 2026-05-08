@@ -1444,8 +1444,15 @@ exports.deleteShort = async (req, res) => {
 
 exports.addBlog = async (req, res) => {
   try {
-    const { title, serviceId, shortDescription, content, seo, status } =
-      req.body;
+    const {
+      title,
+      serviceId,
+      shortDescription,
+      content,
+      seo,
+      status,
+      sortOrder,
+    } = req.body;
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -1457,6 +1464,7 @@ exports.addBlog = async (req, res) => {
       image,
       shortDescription,
       content,
+      sortOrder,
       seo: parseJson(seo),
       status: status || "published",
     });
@@ -1503,8 +1511,15 @@ exports.getAllBlogs = async (req, res) => {
 exports.updateBlog = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, serviceId, shortDescription, content, seo, status } =
-      req.body;
+    const {
+      title,
+      serviceId,
+      shortDescription,
+      content,
+      seo,
+      status,
+      sortOrder,
+    } = req.body;
 
     const updateData = {};
     if (title) updateData.title = title;
@@ -1517,6 +1532,7 @@ exports.updateBlog = async (req, res) => {
     if (seo) updateData.seo = parseJson(seo);
     if (status) updateData.status = status;
 
+    if (sortOrder) updateData.sortOrder = sortOrder;
     const updatedBlog = await Blog.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,

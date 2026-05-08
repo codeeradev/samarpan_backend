@@ -45,6 +45,11 @@ const blogSchema = new mongoose.Schema(
       required: true,
     },
 
+    sortOrder: {
+      type: Number,
+      default: 0,
+    },
+    
     status: {
       type: String,
       enum: ["draft", "published"],
