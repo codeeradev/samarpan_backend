@@ -522,14 +522,14 @@ exports.submitCarrerForm = async (req, res) => {
       ? `/assets/uploads/${req.files.resume[0].filename}`
       : null;
 
-    await CareerEnquiry.create(
+    await CareerEnquiry.create({
       careerId,
       fullName,
       email,
       phone,
       message,
       resume,
-    );
+    });
 
     return res.status(200).json({ message: "Enquiry Submited successfully" });
   } catch (error) {
