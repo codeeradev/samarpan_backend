@@ -14,7 +14,7 @@ const Gallery = require("../models/gallery");
 const Procedure = require("../models/cosmeticProcedure");
 const { fetchGoogleReviews } = require("../utils/googleReviews");
 const Theme = require("../models/theme");
-
+const CareerEnquiry = require("../models/jobApplication");
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
 
@@ -309,8 +309,17 @@ exports.getBlogs = async (req, res) => {
 
 exports.getGallery = async (req, res) => {
   try {
+    const { type } = req.query;
+
+    if (type === "home") {
+      limit = 6;
+    } else {
+      limit = 0;
+    }
+
     const galleryItems = await Gallery.find()
       .select("-__v")
+      .limit(limit)
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -472,9 +481,8 @@ exports.getActiveProcedure = async (req, res) => {
 
     if (type === "home") {
       limit = 6;
-    }
-    else{
-      limit = 0
+    } else {
+      limit = 0;
     }
 
     if (slug) {
@@ -500,6 +508,30 @@ exports.getActiveProcedure = async (req, res) => {
       message: "Procedures retrieved successfully",
       Procedures,
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.submitCarrerForm = async (req, res) => {
+  try {
+    const { careerId, fullName, email, phone, message } = req.body;
+
+    const resume = req.files?.resume?.[0]?.filename
+      ? `/assets/uploads/${req.files.resume[0].filename}`
+      : null;
+
+    await CareerEnquiry.create(
+      careerId,
+      fullName,
+      email,
+      phone,
+      message,
+      resume,
+    );
+
+    return res.status(200).json({ message: "Enquiry Submited successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

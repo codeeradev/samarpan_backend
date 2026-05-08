@@ -13,8 +13,11 @@ const {
   getPageBySlug,
   getSettings,
   getTheme,
-  getActiveProcedure
+  getActiveProcedure,
+  submitCarrerForm
 } = require("../controllers/websiteController");
+
+const upload = require("../middleware/multer");
 
 const router = express.Router();
 
@@ -31,6 +34,7 @@ router.get("/get-content/:modelKey", getContentByModelKey);
 router.get("/get-page/:slug", getPageBySlug);
 router.get("/get-settings", getSettings);
 router.get("/get-theme", getTheme);
-router.get("/get-procedure", getActiveProcedure)
+router.get("/get-procedure", getActiveProcedure);
+router.post("/submit-career-application", upload, submitCarrerForm);
 
 module.exports = router;

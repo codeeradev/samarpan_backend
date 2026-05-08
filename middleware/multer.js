@@ -14,8 +14,7 @@ const storage = multer.diskStorage({
     cb(null, uploadDir); // 🔥 FILE GOES HERE
   },
   filename: (req, file, cb) => {
-    const uniqueName =
-      Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, uniqueName + path.extname(file.originalname));
   },
 });
@@ -28,6 +27,7 @@ const uploadFields = upload.fields([
   { name: "favicon", maxCount: 1 },
   { name: "bannerImage", maxCount: 2 },
   { name: "icon", maxCount: 1 },
+  { name: "resume", maxCount: 1 },
 ]);
 
 uploadFields.any = upload.any();
