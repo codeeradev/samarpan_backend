@@ -312,7 +312,7 @@ exports.getGallery = async (req, res) => {
     const { type } = req.query;
 
     if (type === "home") {
-      limit = 6;
+      limit = 12;
     } else {
       limit = 0;
     }
