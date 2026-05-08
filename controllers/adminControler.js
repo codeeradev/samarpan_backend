@@ -2696,7 +2696,8 @@ exports.getThemes = async (req, res) => {
 
 exports.addProcedure = async (req, res) => {
   try {
-    const { title, slug, seo, content, sortOrder, isActive } = req.body;
+    const { title, slug, shortDescription, seo, content, sortOrder, isActive } =
+      req.body;
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -2713,6 +2714,7 @@ exports.addProcedure = async (req, res) => {
       slug,
       image,
       content,
+      shortDescription,
       seo: parsedSeo,
       sortOrder,
       isActive,
@@ -2725,6 +2727,14 @@ exports.addProcedure = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+
+      return res.status(400).json({
+        message: "Validation failed",
+        errors,
+      });
+    }
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -2733,13 +2743,18 @@ exports.updateProcedure = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { title, slug, seo, content, sortOrder, isActive } = req.body;
+    const { title, slug, shortDescription, seo, content, sortOrder, isActive } =
+      req.body;
 
     const updateData = {};
 
     // text fields
     if (title !== undefined) {
       updateData.title = title;
+    }
+
+    if (shortDescription !== undefined) {
+      updateData.shortDescription = shortDescription;
     }
 
     if (slug !== undefined) {
@@ -2794,6 +2809,15 @@ exports.updateProcedure = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Slug already exists",
+      });
+    }
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+
+      return res.status(400).json({
+        message: "Validation failed",
+        errors,
       });
     }
 

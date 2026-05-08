@@ -16,6 +16,11 @@ const procedureSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    shortDescription: {
+      type: String,
+      required: true,
+      maxlength: [300, "Short description cannot exceed 300 characters"],
+    },
     slug: {
       type: String,
       unique: true,
@@ -60,6 +65,5 @@ procedureSchema.pre("save", async function () {
     this.slug = slug;
   }
 });
-
 
 module.exports = mongoose.model("procedure", procedureSchema);
