@@ -2080,10 +2080,6 @@ exports.updateSettings = async (req, res) => {
       address,
       working_hours,
       password,
-      contact_us,
-      term_and_condition,
-      privacy_policy,
-      about_us,
       google_reviews,
       social_links,
     } = req.body;
@@ -2099,10 +2095,6 @@ exports.updateSettings = async (req, res) => {
     if (address) updateData.address = address;
     if (working_hours) updateData.working_hours = working_hours;
     if (password) updateData.password = password;
-    if (contact_us) updateData.contact_us = contact_us;
-    if (term_and_condition) updateData.term_and_condition = term_and_condition;
-    if (privacy_policy) updateData.privacy_policy = privacy_policy;
-    if (about_us) updateData.about_us = about_us;
     if (google_reviews) updateData.google_reviews = parseJson(google_reviews);
     if (social_links) updateData.social_links = parseJson(social_links);
 

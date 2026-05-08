@@ -37,22 +37,6 @@ const settingSchema = new mongoose.Schema(
     password: {
       type: String,
     },
-    contact_us: {
-      type: String,
-      default: true,
-    },
-    term_and_condition: {
-      type: String,
-      default: true,
-    },
-    privacy_policy: {
-      type: String,
-      default: true,
-    },
-    about_us: {
-      type: String,
-      default: true,
-    },
     google_reviews: {
       place_id: { type: String, trim: true },
       api_key: { type: String, trim: true },
