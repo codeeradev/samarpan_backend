@@ -255,9 +255,20 @@ exports.getServicesFeatures = async (req, res) => {
         });
       }
 
+      const relatedServices = await ServiceFeature.find({
+        serviceId: service._id,
+        slug: { $ne: featureSlug },
+      }).select("_id title slug");
+
+      // convert mongoose doc to object
+      const featureData = feature.toObject();
+
+      // append relatedServices inside feature
+      featureData.relatedServices = relatedServices;
+
       return res.status(200).json({
         message: "Service feature retrieved successfully",
-        feature,
+        feature: featureData,
       });
     }
 
