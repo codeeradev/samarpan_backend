@@ -1,5 +1,6 @@
 const Service = require("../models/service");
 const ServiceFeature = require("../models/serviceFeatures");
+const SubCategoryFeature = require("../models/serviceSubCategory");
 const User = require("../models/user");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
@@ -205,12 +206,10 @@ exports.getServices = async (req, res) => {
       // append features
       serviceData.features = features;
 
-      return res
-        .status(200)
-        .json({
-          message: "Service retrieved successfully",
-          service: serviceData,
-        });
+      return res.status(200).json({
+        message: "Service retrieved successfully",
+        service: serviceData,
+      });
     }
 
     const services = await Service.find(filter)
@@ -227,7 +226,7 @@ exports.getServices = async (req, res) => {
 
 exports.getServicesFeatures = async (req, res) => {
   try {
-    const { serviceSlug, featureSlug } = req.query;
+    const { serviceSlug, featureSlug, subCategorySlug } = req.query;
 
     // ─────────────────────────────────────────────
     // VALIDATION
@@ -254,7 +253,11 @@ exports.getServicesFeatures = async (req, res) => {
       });
     }
 
-    if (featureSlug) {
+    // ─────────────────────────────────────────────
+    // FEATURE PAGE
+    // ─────────────────────────────────────────────
+
+    if (featureSlug && !subCategorySlug) {
       const feature = await ServiceFeature.findOne({
         slug: featureSlug,
         serviceId: service._id,
@@ -268,28 +271,83 @@ exports.getServicesFeatures = async (req, res) => {
         });
       }
 
-      const relatedServices = await ServiceFeature.find({
+      // related features
+      const relatedFeatures = await ServiceFeature.find({
         serviceId: service._id,
         slug: { $ne: featureSlug },
-      }).select("_id title slug");
+      }).select("_id title slug image");
 
-      // convert mongoose doc to object
+      // sub categories
+      const subCategories = await SubCategoryFeature.find({
+        featureServiceId: feature._id,
+      }).select("_id title slug image");
+
       const featureData = feature.toObject();
 
-      // append relatedServices inside feature
-      featureData.relatedServices = relatedServices;
+      featureData.relatedFeatures = relatedFeatures;
+
+      featureData.subCategories = subCategories;
 
       return res.status(200).json({
-        message: "Service feature retrieved successfully",
+        message: "Feature retrieved successfully",
         feature: featureData,
       });
     }
+
+    // ─────────────────────────────────────────────
+    // SUB CATEGORY PAGE
+    // ─────────────────────────────────────────────
+
+    if (featureSlug && subCategorySlug) {
+      const feature = await ServiceFeature.findOne({
+        slug: featureSlug,
+        serviceId: service._id,
+      }).select("_id");
+
+      if (!feature) {
+        return res.status(404).json({
+          message: "Feature not found",
+        });
+      }
+
+      const subCategory = await SubCategoryFeature.findOne({
+        slug: subCategorySlug,
+        featureServiceId: feature._id,
+      })
+        .populate("featureServiceId", "title slug image")
+        .select("-__v -createdAt -updatedAt");
+
+      if (!subCategory) {
+        return res.status(404).json({
+          message: "Sub category not found",
+        });
+      }
+
+      // related sub categories
+      const relatedSubCategories = await SubCategoryFeature.find({
+        featureServiceId: feature._id,
+        slug: { $ne: subCategorySlug },
+      }).select("_id title slug image");
+
+      const subCategoryData = subCategory.toObject();
+
+      subCategoryData.relatedSubCategories = relatedSubCategories;
+
+      return res.status(200).json({
+        message: "Sub category retrieved successfully",
+        subCategory: subCategoryData,
+      });
+    }
+
+    // ─────────────────────────────────────────────
+    // ALL FEATURES
+    // ─────────────────────────────────────────────
 
     const features = await ServiceFeature.find({
       serviceId: service._id,
     })
       .populate("serviceId", "title slug")
-      .select("title slug serviceId")
+      .select("title slug image serviceId")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({

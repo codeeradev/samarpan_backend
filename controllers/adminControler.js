@@ -480,7 +480,7 @@ exports.getServiceFeatures = async (req, res) => {
 
     if (type === "sub_cat") {
       const serviceSubCategory = await ServiceSubCategory.find().populate(
-        "serviceId serviceSubCategoryId",
+        "serviceId featureServiceId",
       );
 
       return res.json(serviceSubCategory);
@@ -497,8 +497,17 @@ exports.getServiceFeatures = async (req, res) => {
 exports.addServiceFeatures = async (req, res) => {
   try {
     const { type } = req.query;
-    const { title, content, seo, slug, serviceId, serviceSubCategoryId } =
-      req.body;
+    const {
+      title,
+      content,
+      seo,
+      slug,
+      serviceId,
+      serviceSubCategoryId,
+      featureServiceId,
+    } = req.body;
+    const parsedSeo = parseJson(seo) || seo || {};
+    const parentFeatureId = serviceSubCategoryId || featureServiceId;
 
     if (!title?.trim()) {
       return res.status(400).json({
@@ -517,7 +526,7 @@ exports.addServiceFeatures = async (req, res) => {
       : null;
 
     if (type === "sub_cat") {
-      if (!serviceSubCategoryId) {
+      if (!parentFeatureId) {
         return res.status(400).json({
           message: "Service Sub Category ID is required",
         });
@@ -527,15 +536,15 @@ exports.addServiceFeatures = async (req, res) => {
         title: title.trim(),
         slug,
         serviceId,
-        serviceSubCategoryId,
+        featureServiceId: parentFeatureId,
         image,
         content: content?.trim() || "",
         seo: {
-          metaTitle: seo?.metaTitle?.trim() || title.trim(),
+          metaTitle: parsedSeo?.metaTitle?.trim() || title.trim(),
 
-          metaDescription: seo?.metaDescription?.trim() || "",
+          metaDescription: parsedSeo?.metaDescription?.trim() || "",
 
-          keywords: Array.isArray(seo?.keywords) ? seo.keywords : [],
+          keywords: Array.isArray(parsedSeo?.keywords) ? parsedSeo.keywords : [],
         },
       });
 
@@ -551,11 +560,11 @@ exports.addServiceFeatures = async (req, res) => {
       image,
       content: content?.trim() || "",
       seo: {
-        metaTitle: seo?.metaTitle?.trim() || title.trim(),
+        metaTitle: parsedSeo?.metaTitle?.trim() || title.trim(),
 
-        metaDescription: seo?.metaDescription?.trim() || "",
+        metaDescription: parsedSeo?.metaDescription?.trim() || "",
 
-        keywords: Array.isArray(seo?.keywords) ? seo.keywords : [],
+        keywords: Array.isArray(parsedSeo?.keywords) ? parsedSeo.keywords : [],
       },
     });
 
@@ -578,8 +587,17 @@ exports.updateServiceFeature = async (req, res) => {
 
     const { type } = req.query;
 
-    const { title, content, seo, slug, serviceId, serviceSubCategoryId } =
-      req.body;
+    const {
+      title,
+      content,
+      seo,
+      slug,
+      serviceId,
+      serviceSubCategoryId,
+      featureServiceId,
+    } = req.body;
+    const parsedSeo = parseJson(seo) || seo || {};
+    const parentFeatureId = serviceSubCategoryId || featureServiceId;
 
     let feature;
 
@@ -613,8 +631,8 @@ exports.updateServiceFeature = async (req, res) => {
       feature.serviceId = serviceId;
     }
 
-    if (type === "sub_cat" && serviceSubCategoryId !== undefined) {
-      feature.serviceSubCategoryId = serviceSubCategoryId;
+    if (type === "sub_cat" && parentFeatureId !== undefined) {
+      feature.featureServiceId = parentFeatureId;
     }
 
     if (content !== undefined) {
@@ -626,11 +644,11 @@ exports.updateServiceFeature = async (req, res) => {
 
     if (seo !== undefined) {
       feature.seo = {
-        metaTitle: seo?.metaTitle?.trim() || feature.title,
+        metaTitle: parsedSeo?.metaTitle?.trim() || feature.title,
 
-        metaDescription: seo?.metaDescription?.trim() || "",
+        metaDescription: parsedSeo?.metaDescription?.trim() || "",
 
-        keywords: Array.isArray(seo?.keywords) ? seo.keywords : [],
+        keywords: Array.isArray(parsedSeo?.keywords) ? parsedSeo.keywords : [],
       };
     }
 

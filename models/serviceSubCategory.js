@@ -22,14 +22,12 @@ const serviceFeatureSchema = new mongoose.Schema(
       ref: "Service",
       required: true,
     },
-
-    serviceSubCategoryId:{
+    featureServiceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "service_feature",
       required: true,
     },
-
-    image:String,
+    image: String,
     content: { type: String },
     seo: {
       metaTitle: String,
@@ -37,7 +35,11 @@ const serviceFeatureSchema = new mongoose.Schema(
       keywords: [String],
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
 
 serviceFeatureSchema.pre("save", async function () {
@@ -47,9 +49,8 @@ serviceFeatureSchema.pre("save", async function () {
     let counter = 1;
 
     while (
-      await mongoose.models.service_feature.findOne({
+      await this.constructor.findOne({
         slug,
-        serviceId: this.serviceId,
         _id: { $ne: this._id },
       })
     ) {
@@ -64,7 +65,6 @@ serviceFeatureSchema.pre("save", async function () {
   if (!this.seo.metaTitle) {
     this.seo.metaTitle = this.title;
   }
-
 });
 
 module.exports = mongoose.model("service_sub_category", serviceFeatureSchema);
