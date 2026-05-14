@@ -314,6 +314,7 @@ exports.getServicesFeatures = async (req, res) => {
         slug: subCategorySlug,
         featureServiceId: feature._id,
       })
+      .populate("serviceId", "title slug")
         .populate("featureServiceId", "title slug image")
         .select("-__v -createdAt -updatedAt");
 
