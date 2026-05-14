@@ -23,6 +23,7 @@ const serviceFeatureSchema = new mongoose.Schema(
       required: true,
     },
 
+    image:String,
     content: { type: String },
     seo: {
       metaTitle: String,

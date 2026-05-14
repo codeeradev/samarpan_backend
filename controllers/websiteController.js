@@ -197,7 +197,7 @@ exports.getServices = async (req, res) => {
 
       const features = await ServiceFeature.find({
         serviceId: service._id,
-      }).select("_id title slug");
+      }).select("_id title slug image");
 
       // convert mongoose doc
       const serviceData = service.toObject();

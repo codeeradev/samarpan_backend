@@ -373,14 +373,7 @@ exports.adminLogin = async (req, res) => {
 
 exports.addService = async (req, res) => {
   try {
-    const {
-      title,
-      slug,
-      shortDescription,
-      content,
-      faqs,
-      seo,
-    } = req.body;
+    const { title, slug, shortDescription, content, faqs, seo } = req.body;
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -428,14 +421,7 @@ exports.getAllServices = async (req, res) => {
 exports.updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      title,
-      slug,
-      shortDescription,
-      content,
-      faqs,
-      seo,
-    } = req.body;
+    const { title, slug, shortDescription, content, faqs, seo } = req.body;
 
     const updateData = {};
     if (title) updateData.title = title;
@@ -488,7 +474,7 @@ exports.deleteService = async (req, res) => {
 
 exports.getServiceFeatures = async (req, res) => {
   try {
-    const ServiceFeatures = await ServiceFeature.find().populate("serviceId",);
+    const ServiceFeatures = await ServiceFeature.find().populate("serviceId");
 
     return res.json(ServiceFeatures);
   } catch (error) {
@@ -513,10 +499,15 @@ exports.addServiceFeatures = async (req, res) => {
       });
     }
 
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
     const feature = await ServiceFeature.create({
       title: title.trim(),
       slug,
       serviceId,
+      image,
       content: content?.trim() || "",
       seo: {
         metaTitle: seo?.metaTitle?.trim() || title.trim(),
@@ -575,6 +566,9 @@ exports.updateServiceFeature = async (req, res) => {
     if (content !== undefined) {
       feature.content = content.trim();
     }
+
+    if (req.files?.image)
+      feature.image = `/assets/uploads/${req.files.image[0].filename}`;
 
     if (seo !== undefined) {
       feature.seo = {

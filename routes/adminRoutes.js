@@ -121,12 +121,14 @@ router.post(
   "/add-service-feature",
   verifyToken,
   checkPermission(permisson.MANAGE_SERVICES),
+  upload,
   addServiceFeatures,
 );
 router.post(
   "/update-service-feature/:id",
   verifyToken,
   checkPermission(permisson.MANAGE_SERVICES),
+  upload,
   updateServiceFeature,
 );
 router.post(
@@ -239,7 +241,13 @@ router.post(
 
 router.post("/add-career", verifyToken, checkAdmin, upload, addCareer);
 router.get("/get-all-careers", verifyToken, checkAdmin, getAllCareers);
-router.post("/update-career/:id", verifyToken, checkAdmin, upload, updateCareer);
+router.post(
+  "/update-career/:id",
+  verifyToken,
+  checkAdmin,
+  upload,
+  updateCareer,
+);
 router.post("/delete-career/:id", verifyToken, checkAdmin, deleteCareer);
 router.post("/add-page", verifyToken, checkAdmin, addPage);
 router.get("/get-all-pages", verifyToken, checkAdmin, getAllPages);
