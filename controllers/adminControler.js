@@ -9,6 +9,7 @@ const Career = require("../models/career");
 const CareerEnquiry = require("../models/jobApplication");
 const Page = require("../models/page");
 const ServiceFeature = require("../models/serviceFeatures");
+const ServiceSubCategory = require("../models/serviceSubCategory");
 const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const Specialization = require("../models/specialization");
@@ -475,6 +476,15 @@ exports.deleteService = async (req, res) => {
 
 exports.getServiceFeatures = async (req, res) => {
   try {
+    const { type } = req.query;
+
+    if (type === "sub_cat") {
+      const serviceSubCategory = await ServiceSubCategory.find().populate(
+        "serviceId serviceSubCategoryId",
+      );
+
+      return res.json(serviceSubCategory);
+    }
     const ServiceFeatures = await ServiceFeature.find().populate("serviceId");
 
     return res.json(ServiceFeatures);
@@ -486,7 +496,9 @@ exports.getServiceFeatures = async (req, res) => {
 
 exports.addServiceFeatures = async (req, res) => {
   try {
-    const { title, content, seo, slug, serviceId } = req.body;
+    const { type } = req.query;
+    const { title, content, seo, slug, serviceId, serviceSubCategoryId } =
+      req.body;
 
     if (!title?.trim()) {
       return res.status(400).json({
@@ -504,6 +516,34 @@ exports.addServiceFeatures = async (req, res) => {
       ? `/assets/uploads/${req.files.image[0].filename}`
       : null;
 
+    if (type === "sub_cat") {
+      if (!serviceSubCategoryId) {
+        return res.status(400).json({
+          message: "Service Sub Category ID is required",
+        });
+      }
+
+      const serviceSubCategory = await ServiceSubCategory.create({
+        title: title.trim(),
+        slug,
+        serviceId,
+        serviceSubCategoryId,
+        image,
+        content: content?.trim() || "",
+        seo: {
+          metaTitle: seo?.metaTitle?.trim() || title.trim(),
+
+          metaDescription: seo?.metaDescription?.trim() || "",
+
+          keywords: Array.isArray(seo?.keywords) ? seo.keywords : [],
+        },
+      });
+
+      return res.status(201).json({
+        message: "Service feature added successfully",
+        serviceSubCategory,
+      });
+    }
     const feature = await ServiceFeature.create({
       title: title.trim(),
       slug,
@@ -536,9 +576,18 @@ exports.updateServiceFeature = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { title, content, seo, slug, serviceId } = req.body;
+    const { type } = req.query;
 
-    const feature = await ServiceFeature.findById(id);
+    const { title, content, seo, slug, serviceId, serviceSubCategoryId } =
+      req.body;
+
+    let feature;
+
+    if (type === "sub_cat") {
+      feature = await ServiceSubCategory.findById(id);
+    } else {
+      feature = await ServiceFeature.findById(id);
+    }
 
     if (!feature) {
       return res.status(404).json({
@@ -562,6 +611,10 @@ exports.updateServiceFeature = async (req, res) => {
 
     if (serviceId !== undefined) {
       feature.serviceId = serviceId;
+    }
+
+    if (type === "sub_cat" && serviceSubCategoryId !== undefined) {
+      feature.serviceSubCategoryId = serviceSubCategoryId;
     }
 
     if (content !== undefined) {
@@ -599,16 +652,30 @@ exports.updateServiceFeature = async (req, res) => {
 exports.deleteServiceFeature = async (req, res) => {
   try {
     const { id } = req.params;
+    const { type } = req.query;
 
-    const feature = await ServiceFeature.findById(id);
+    let feature;
+    if (type === "sub_cat") {
+      feature = await ServiceSubCategory.findById(id);
 
-    if (!feature) {
-      return res.status(404).json({
-        message: "Service feature not found",
-      });
+      if (!feature) {
+        return res.status(404).json({
+          message: "Service feature not found",
+        });
+      }
+
+      await ServiceSubCategory.findByIdAndDelete(id);
+    } else {
+      feature = await ServiceFeature.findById(id);
+
+      if (!feature) {
+        return res.status(404).json({
+          message: "Service feature not found",
+        });
+      }
+
+      await ServiceFeature.findByIdAndDelete(id);
     }
-
-    await ServiceFeature.findByIdAndDelete(id);
 
     return res.status(200).json({
       message: "Service feature deleted successfully",
@@ -3026,7 +3093,9 @@ exports.getProcedure = async (req, res) => {
 
 exports.getJobRequests = async (req, res) => {
   try {
-    const applications = await CareerEnquiry.find().populate("careerId").sort({createdAt:-1});
+    const applications = await CareerEnquiry.find()
+      .populate("careerId")
+      .sort({ createdAt: -1 });
 
     return res
       .status(200)
