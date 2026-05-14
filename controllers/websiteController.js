@@ -246,7 +246,7 @@ exports.getServicesFeatures = async (req, res) => {
     const service = await Service.findOne({
       slug: serviceSlug,
       isActive: true,
-    }).select("_id title slug");
+    }).select("_id title slug image");
 
     if (!service) {
       return res.status(404).json({
