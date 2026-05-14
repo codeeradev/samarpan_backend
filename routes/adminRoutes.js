@@ -237,9 +237,9 @@ router.post(
   deleteGallery,
 );
 
-router.post("/add-career", verifyToken, checkAdmin, addCareer);
+router.post("/add-career", verifyToken, checkAdmin, upload, addCareer);
 router.get("/get-all-careers", verifyToken, checkAdmin, getAllCareers);
-router.post("/update-career/:id", verifyToken, checkAdmin, updateCareer);
+router.post("/update-career/:id", verifyToken, checkAdmin, upload, updateCareer);
 router.post("/delete-career/:id", verifyToken, checkAdmin, deleteCareer);
 router.post("/add-page", verifyToken, checkAdmin, addPage);
 router.get("/get-all-pages", verifyToken, checkAdmin, getAllPages);
