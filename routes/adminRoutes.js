@@ -46,6 +46,8 @@ const {
   updateCareer,
   deleteCareer,
 
+  getJobRequests,
+
   getContentByModelKey,
   upsertContent,
 
@@ -249,6 +251,9 @@ router.post(
   updateCareer,
 );
 router.post("/delete-career/:id", verifyToken, checkAdmin, deleteCareer);
+
+router.get("/get-job-applications", verifyToken, checkAdmin, getJobRequests);
+
 router.post("/add-page", verifyToken, checkAdmin, addPage);
 router.get("/get-all-pages", verifyToken, checkAdmin, getAllPages);
 router.post("/update-page/:id", verifyToken, checkAdmin, updatePage);

@@ -6,6 +6,7 @@ const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
 const Content = require("../models/content");
 const Career = require("../models/career");
+const CareerEnquiry = require("../models/jobApplication");
 const Page = require("../models/page");
 const ServiceFeature = require("../models/serviceFeatures");
 const Setting = require("../models/setting");
@@ -3017,6 +3018,19 @@ exports.getProcedure = async (req, res) => {
     });
 
     return res.json(Procedures);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getJobRequests = async (req, res) => {
+  try {
+    const applications = await CareerEnquiry.find().populate("careerId").sort({createdAt:-1});
+
+    return res
+      .status(200)
+      .json({ message: "Applications retrieved successfully", applications });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ message: "Server error" });
