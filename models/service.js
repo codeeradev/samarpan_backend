@@ -34,12 +34,6 @@ const serviceSchema = new mongoose.Schema(
     type: String
   },
 
-  // features: [
-  //   {
-  //     type: String
-  //   }
-  // ],
-
   faqs: [
     {
       question: String,

@@ -377,7 +377,6 @@ exports.addService = async (req, res) => {
       title,
       slug,
       shortDescription,
-      //  features,
       content,
       faqs,
       seo,
@@ -397,7 +396,6 @@ exports.addService = async (req, res) => {
       shortDescription,
       image,
       icon,
-      features: features ? JSON.parse(features) : [],
       content,
       faqs: faqs ? JSON.parse(faqs) : [],
       seo: seo ? JSON.parse(seo) : {},
@@ -434,7 +432,6 @@ exports.updateService = async (req, res) => {
       title,
       slug,
       shortDescription,
-      // features,
       content,
       faqs,
       seo,
@@ -449,7 +446,6 @@ exports.updateService = async (req, res) => {
 
     if (req.files?.icon)
       updateData.icon = `/assets/uploads/${req.files.icon[0].filename}`;
-    if (features) updateData.features = JSON.parse(features);
     if (faqs) updateData.faqs = JSON.parse(faqs);
     if (seo) updateData.seo = JSON.parse(seo);
     if (content) updateData.content = content;
