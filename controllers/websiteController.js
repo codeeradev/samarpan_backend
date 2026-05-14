@@ -1,4 +1,5 @@
 const Service = require("../models/service");
+const ServiceFeature = require("../models/serviceFeatures");
 const User = require("../models/user");
 const Short = require("../models/short");
 const Blog = require("../models/blog");
@@ -208,6 +209,75 @@ exports.getServices = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getServicesFeatures = async (req, res) => {
+  try {
+    const { serviceSlug, featureSlug } = req.query;
+
+    // ─────────────────────────────────────────────
+    // VALIDATION
+    // ─────────────────────────────────────────────
+
+    if (!serviceSlug) {
+      return res.status(400).json({
+        message: "serviceSlug is required",
+      });
+    }
+
+    // ─────────────────────────────────────────────
+    // FIND SERVICE
+    // ─────────────────────────────────────────────
+
+    const service = await Service.findOne({
+      slug: serviceSlug,
+      isActive: true,
+    }).select("_id title slug");
+
+    if (!service) {
+      return res.status(404).json({
+        message: "Service not found",
+      });
+    }
+
+    if (featureSlug) {
+      const feature = await ServiceFeature.findOne({
+        slug: featureSlug,
+        serviceId: service._id,
+      })
+        .populate("serviceId", "title slug")
+        .select("-__v -createdAt -updatedAt");
+
+      if (!feature) {
+        return res.status(404).json({
+          message: "Service feature not found",
+        });
+      }
+
+      return res.status(200).json({
+        message: "Service feature retrieved successfully",
+        feature,
+      });
+    }
+
+    const features = await ServiceFeature.find({
+      serviceId: service._id,
+    })
+      .populate("serviceId", "title slug")
+      .select("title slug serviceId")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Service features retrieved successfully",
+      features,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 

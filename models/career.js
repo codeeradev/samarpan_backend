@@ -20,6 +20,10 @@ const careerSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    image: {
+      type: String,
+      required: true,
+    },
     employmentType: {
       type: String,
       default: "",

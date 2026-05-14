@@ -7,6 +7,7 @@ const Gallery = require("../models/gallery");
 const Content = require("../models/content");
 const Career = require("../models/career");
 const Page = require("../models/page");
+const ServiceFeature = require("../models/serviceFeatures");
 const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const Specialization = require("../models/specialization");
@@ -372,8 +373,15 @@ exports.adminLogin = async (req, res) => {
 
 exports.addService = async (req, res) => {
   try {
-    const { title, slug, shortDescription, features, content, faqs, seo } =
-      req.body;
+    const {
+      title,
+      slug,
+      shortDescription,
+      //  features,
+      content,
+      faqs,
+      seo,
+    } = req.body;
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -422,8 +430,15 @@ exports.getAllServices = async (req, res) => {
 exports.updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, slug, shortDescription, features, content, faqs, seo } =
-      req.body;
+    const {
+      title,
+      slug,
+      shortDescription,
+      // features,
+      content,
+      faqs,
+      seo,
+    } = req.body;
 
     const updateData = {};
     if (title) updateData.title = title;
@@ -472,6 +487,147 @@ exports.deleteService = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getServiceFeatures = async (req, res) => {
+  try {
+    const ServiceFeatures = await ServiceFeature.find().populate("serviceId",);
+
+    return res.json(ServiceFeatures);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addServiceFeatures = async (req, res) => {
+  try {
+    const { title, content, seo, slug, serviceId } = req.body;
+
+    if (!title?.trim()) {
+      return res.status(400).json({
+        message: "Title is required",
+      });
+    }
+
+    if (!serviceId) {
+      return res.status(400).json({
+        message: "Service ID is required",
+      });
+    }
+
+    const feature = await ServiceFeature.create({
+      title: title.trim(),
+      slug,
+      serviceId,
+      content: content?.trim() || "",
+      seo: {
+        metaTitle: seo?.metaTitle?.trim() || title.trim(),
+
+        metaDescription: seo?.metaDescription?.trim() || "",
+
+        keywords: Array.isArray(seo?.keywords) ? seo.keywords : [],
+      },
+    });
+
+    return res.status(201).json({
+      message: "Service feature added successfully",
+      feature,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+exports.updateServiceFeature = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { title, content, seo, slug, serviceId } = req.body;
+
+    const feature = await ServiceFeature.findById(id);
+
+    if (!feature) {
+      return res.status(404).json({
+        message: "Service feature not found",
+      });
+    }
+
+    if (title !== undefined) {
+      if (!title.trim()) {
+        return res.status(400).json({
+          message: "Title is required",
+        });
+      }
+
+      feature.title = title.trim();
+    }
+
+    if (slug !== undefined) {
+      feature.slug = slug;
+    }
+
+    if (serviceId !== undefined) {
+      feature.serviceId = serviceId;
+    }
+
+    if (content !== undefined) {
+      feature.content = content.trim();
+    }
+
+    if (seo !== undefined) {
+      feature.seo = {
+        metaTitle: seo?.metaTitle?.trim() || feature.title,
+
+        metaDescription: seo?.metaDescription?.trim() || "",
+
+        keywords: Array.isArray(seo?.keywords) ? seo.keywords : [],
+      };
+    }
+
+    await feature.save();
+
+    return res.status(200).json({
+      message: "Service feature updated successfully",
+      feature,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+exports.deleteServiceFeature = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const feature = await ServiceFeature.findById(id);
+
+    if (!feature) {
+      return res.status(404).json({
+        message: "Service feature not found",
+      });
+    }
+
+    await ServiceFeature.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      message: "Service feature deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
@@ -1908,12 +2064,22 @@ exports.addCareer = async (req, res) => {
       normalizeCareerStatus(req.body.status) ||
       (parseBoolean(req.body.isActive) === false ? "draft" : "open");
 
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
 
     if (!slug) {
       return res.status(400).json({ message: "Slug is required" });
+    }
+
+    if (!image) {
+      return res.status(400).json({
+        message: "Image is required",
+      });
     }
 
     const existingCareer = await Career.findOne({ slug });
@@ -1937,6 +2103,7 @@ exports.addCareer = async (req, res) => {
       applyEmail: normalizeText(req.body.applyEmail),
       applyLink: normalizeText(req.body.applyLink),
       status,
+      image,
       sortOrder: normalizeSortOrder(req.body.sortOrder),
       isActive: status !== "draft",
     });
@@ -2053,6 +2220,10 @@ exports.updateCareer = async (req, res) => {
       : existingCareer.sortOrder;
     existingCareer.isActive = status !== "draft";
 
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : existingCareer.image;
+    existingCareer.image = image;
     const career = await existingCareer.save();
 
     return res.status(200).json({

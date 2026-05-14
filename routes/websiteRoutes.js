@@ -2,6 +2,7 @@ const express = require("express");
 const {
   submitAppointment,
   getServices,
+  getServicesFeatures,
   getDoctors,
   getReviews,
   getShorts,
@@ -23,6 +24,7 @@ const router = express.Router();
 
 router.post("/submit-appointment", submitAppointment);
 router.get("/get-services", getServices);
+router.get("/get-services-features", getServicesFeatures);
 router.get("/get-doctors", getDoctors);
 router.get("/get-reviews", getReviews);
 router.get("/get-shorts", getShorts);
