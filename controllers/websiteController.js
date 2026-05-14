@@ -195,9 +195,22 @@ exports.getServices = async (req, res) => {
         return res.status(404).json({ message: "Service not found" });
       }
 
+      const features = await ServiceFeature.find({
+        serviceId: service._id,
+      }).select("_id title slug");
+
+      // convert mongoose doc
+      const serviceData = service.toObject();
+
+      // append features
+      serviceData.features = features;
+
       return res
         .status(200)
-        .json({ message: "Service retrieved successfully", service });
+        .json({
+          message: "Service retrieved successfully",
+          service: serviceData,
+        });
     }
 
     const services = await Service.find(filter)
