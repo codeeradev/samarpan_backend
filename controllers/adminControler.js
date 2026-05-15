@@ -479,13 +479,13 @@ exports.getServiceFeatures = async (req, res) => {
     const { type } = req.query;
 
     if (type === "sub_cat") {
-      const serviceSubCategory = await ServiceSubCategory.find().populate(
+      const serviceSubCategory = await ServiceSubCategory.find().sort({createdAt:-1}).populate(
         "serviceId featureServiceId",
       );
 
       return res.json(serviceSubCategory);
     }
-    const ServiceFeatures = await ServiceFeature.find().populate("serviceId");
+    const ServiceFeatures = await ServiceFeature.find().sort({createdAt:-1}).populate("serviceId");
 
     return res.json(ServiceFeatures);
   } catch (error) {
@@ -783,7 +783,7 @@ exports.addDoctor = async (req, res) => {
 
 exports.getAllDoctors = async (req, res) => {
   try {
-    const doctors = await User.find({ roleId: ROLES.DOCTOR }).select(
+    const doctors = await User.find({ roleId: ROLES.DOCTOR }).sort({createdAt:-1}).select(
       "-password",
     );
     return res
@@ -2361,7 +2361,7 @@ exports.updateSettings = async (req, res) => {
     if (google_reviews) updateData.google_reviews = parseJson(google_reviews);
     if (social_links) updateData.social_links = parseJson(social_links);
 
-    if (req.files.image[0]?.filename) {
+    if (req.files?.image?.[0]?.filename) {
       updateData.website_logo = `/assets/uploads/${req.files.image[0].filename}`;
     }
 
@@ -2378,6 +2378,7 @@ exports.updateSettings = async (req, res) => {
       data: settings,
     });
   } catch (error) {
+    console.log(error)
     return res.status(500).json({
       success: false,
       message: "Error updating settings",
