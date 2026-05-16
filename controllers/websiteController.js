@@ -394,7 +394,7 @@ exports.getReviews = async (req, res) => {
         {
           authorName: "Ruhan Sharma",
           author_url: "",
-          profile_photo_url: "",
+          profilePhotoUrl: "https://lh3.googleusercontent.com/a-/ALV-UjW2Dm5MGTAagdmBdrp7eF2pWoIRALfIhSP_UuDsVvN0BuNmvYg=w45-h45-p-rp-mo-br100",
           rating: 5,
           relative_time_description: "5 months ago",
           text: "Dr. Vishal Mohan Goyal, a very experienced doctor and surgeon, with an initiative to make lives better. My brother was operated here for a hair transplant surgery and the results were excellent.",
@@ -403,7 +403,7 @@ exports.getReviews = async (req, res) => {
         {
           authorName: "Kiran Bhar",
           author_url: "",
-          profile_photo_url: "",
+          profilePhotoUrl: "https://lh3.googleusercontent.com/a/ACg8ocKNqDoG8O_JNJ5-V2cm0Gm2Ln748lFp85JJI0hOMFob1jE63g=w45-h45-p-rp-mo-br100",
           rating: 5,
           relative_time_description: "5 months ago",
           text: "I had a very positive experience with Dr. Meenakshi Goyal for my PCOD treatment. She is extremely patient, understanding, and explains everything clearly. Her treatment approach is practical and effective, and I finally feel confident about managing my PCOD. Highly recommend her to anyone dealing with hormonal issues.",
@@ -412,7 +412,7 @@ exports.getReviews = async (req, res) => {
         {
           authorName: "Manisha Verma",
           author_url: "",
-          profile_photo_url: "",
+          profilePhotoUrl: "https://lh3.googleusercontent.com/a/ACg8ocKCx0hdfJCTduMCACXWV4QwCLOsbVcNkbyu9rpaNnKtJhtEZw=w45-h45-p-rp-mo-br100",
           rating: 5,
           relative_time_description: "5 months ago",
           text: "I had an excellent experience with my HydraFacial performed by Dr. Visha Mohan. She was extremely professional, knowledgeable, and took the time to explain each step of the treatment, which made me feel very comfortable. The procedure was gentle yet effective, and my skin felt instantly refreshed, hydrated, and glowing. Dr. Visha Mohan’s attention to detail and genuine care truly stand out. I am very happy with the results and would highly recommend her to anyone looking for safe, high-quality skin treatments.",
@@ -421,7 +421,7 @@ exports.getReviews = async (req, res) => {
         {
           authorName: "rakesh garg",
           author_url: "",
-          profile_photo_url: "",
+          profilePhotoUrl: "https://lh3.googleusercontent.com/a/ACg8ocLAnwdEFpmdg3BTxADqoMw66RkkQqe07BHBL8qT7aCvddVrqg=w45-h45-p-rp-mo-br100",
           rating: 5,
           relative_time_description: "5 months ago",
           text: "I was admitted under Dr.Meenakshi Goyal for severe abdominal pain, and I had a very positive experience. She was patient, attentive, and took the time to clearly explain what was happening and the steps needed for my treatment. Throughout my stay, she checked on me regularly and made sure I was comfortable and well cared for. Her calm approach and reassuring attitude really helped ease my anxiety. I’m grateful for her professionalism and compassion, and I truly appreciate the care I received.",
@@ -430,7 +430,7 @@ exports.getReviews = async (req, res) => {
         {
           authorName: "Sandeep Kumar",
           author_url: "",
-          profile_photo_url: "",
+          profilePhotoUrl: "https://lh3.googleusercontent.com/a-/ALV-UjX0eua89jgMk3W-SPkRsMDsEF487Dohk1S-iMZKqm2LOmHZ5U8=w45-h45-p-rp-mo-br100",
           rating: 5,
           relative_time_description: "5 months ago",
           text: `Dr Minakshi Goyal is an extremely knowledgeable, caring, and professional doctor. She listens patiently, explains the diagnosis and treatment clearly, and makes patients feel comfortable and confident. Her compassionate approach and dedication truly make a difference in patient care.
@@ -441,7 +441,7 @@ Highly recommended for anyone seeking reliable medical care and a positive hospi
         {
           authorName: "Deepak Goyal",
           author_url: "",
-          profile_photo_url: "",
+          profilePhotoUrl: "https://lh3.googleusercontent.com/a-/ALV-UjWponSgVajKXU877NUJQ3s3IgpUPdeJ2WjK2fYDD_6WGVkY0Sg=w45-h45-p-rp-mo-br100",
           rating: 5,
           relative_time_description: "5 months ago",
           text: `I recently underwent debridement and varicose vein surgery under the care of Dr. Vishal, and I couldn’t be more pleased with the entire experience. From the initial consultation to the post-surgery follow-ups, Dr. Vishal was professional, knowledgeable, and compassionate.
