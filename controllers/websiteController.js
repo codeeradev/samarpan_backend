@@ -712,6 +712,7 @@ exports.getActiveProcedure = async (req, res) => {
 
     if (slug) {
       const Procedures = await Procedure.findOne({
+        slug,
         isActive: { $ne: false },
       }).sort({
         createdAt: -1,
