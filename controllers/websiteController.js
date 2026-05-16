@@ -392,7 +392,7 @@ exports.getReviews = async (req, res) => {
       averageRating: 5,
       reviews: [
         {
-          name: "Ruhan Sharma",
+          author_name: "Ruhan Sharma",
           author_url: "",
           profile_photo_url: "",
           rating: 5,
@@ -401,7 +401,7 @@ exports.getReviews = async (req, res) => {
           time: 0,
         },
         {
-          name: "Kiran Bhar",
+          author_name: "Kiran Bhar",
           author_url: "",
           profile_photo_url: "",
           rating: 5,
@@ -410,7 +410,7 @@ exports.getReviews = async (req, res) => {
           time: 0,
         },
         {
-          name: "Manisha Verma",
+          author_name: "Manisha Verma",
           author_url: "",
           profile_photo_url: "",
           rating: 5,
@@ -419,7 +419,7 @@ exports.getReviews = async (req, res) => {
           time: 0,
         },
         {
-          name: "rakesh garg",
+          author_name: "rakesh garg",
           author_url: "",
           profile_photo_url: "",
           rating: 5,
@@ -428,7 +428,7 @@ exports.getReviews = async (req, res) => {
           time: 0,
         },
         {
-          name: "Sandeep Kumar",
+          author_name: "Sandeep Kumar",
           author_url: "",
           profile_photo_url: "",
           rating: 5,
@@ -439,7 +439,7 @@ Highly recommended for anyone seeking reliable medical care and a positive hospi
           time: 0,
         },
         {
-          name: "Deepak Goyal",
+          author_name: "Deepak Goyal",
           author_url: "",
           profile_photo_url: "",
           rating: 5,
