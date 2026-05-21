@@ -672,7 +672,7 @@ exports.getSettings = async (req, res) => {
   try {
     const settings = await Setting.findOne()
       .select(
-        "inquiry_email inquiry_mobile_number address working_hours social_links whatsapp_number website_logo",
+        "inquiry_email inquiry_mobile_number address working_hours social_links whatsapp_number website_logo privacy_policy term_and_condition",
       )
       .lean();
     return res
