@@ -31,6 +31,11 @@ const {
   updateShort,
   deleteShort,
 
+  addBlogCategory,
+  getAllBlogCategories,
+  updateBlogCategory,
+  deleteBlogCategory,
+
   addBlog,
   getAllBlogs,
   updateBlog,
@@ -188,6 +193,35 @@ router.post(
   checkPermission(permisson.MANAGE_SHORTS),
   deleteShort,
 );
+
+router.post(
+  "/add-blog-category",
+  verifyToken,
+  checkPermission(permisson.MANAGE_BLOGS),
+  upload,
+  addBlogCategory,
+);
+
+router.get(
+  "/get-all-blog-categories",
+  verifyToken,
+  checkPermission(permisson.VIEW_BLOGS),
+  getAllBlogCategories,
+);
+router.post(
+  "/update-blog-category/:id",
+  verifyToken,
+  checkPermission(permisson.MANAGE_BLOGS),
+  upload,
+  updateBlogCategory,
+);
+router.post(
+  "/delete-blog-category/:id",
+  verifyToken,
+  checkPermission(permisson.MANAGE_BLOGS),
+  deleteBlogCategory,
+);
+
 router.post(
   "/add-blog",
   verifyToken,

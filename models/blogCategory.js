@@ -23,31 +23,8 @@ const blogSchema = new mongoose.Schema(
       lowercase: true,
     },
 
-    serviceId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Service",
-      required: true,
-    },
-
     image: {
       type: String, // store image path
-      required: true,
-    },
-
-    blogCategoryId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Blog_Category",
-      required: true,
-    },
-    
-    shortDescription: {
-      type: String,
-      required: true,
-      maxlength: [300, "Short description cannot exceed 300 characters"],
-    },
-
-    content: {
-      type: String,
       required: true,
     },
 
@@ -55,17 +32,10 @@ const blogSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    
-    status: {
-      type: String,
-      enum: ["draft", "published"],
-      default: "published",
-    },
 
-    seo: {
-      metaTitle: String,
-      metaDescription: String,
-      keywords: [String],
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true },
@@ -90,17 +60,6 @@ blogSchema.pre("save", async function () {
 
     this.slug = slug;
   }
-
-  // SEO auto
-  this.seo = this.seo || {};
-
-  if (!this.seo.metaTitle) {
-    this.seo.metaTitle = this.title;
-  }
-
-  if (!this.seo.metaDescription) {
-    this.seo.metaDescription = this.shortDescription.slice(0, 160);
-  }
 });
 
-module.exports = mongoose.model("Blog", blogSchema);
+module.exports = mongoose.model("Blog_Category", blogSchema);

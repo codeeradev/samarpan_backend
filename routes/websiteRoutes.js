@@ -7,6 +7,7 @@ const {
   getReviews,
   getShorts,
   getBlogs,
+  getBlogCategory,
   getGallery,
   getCareers,
   getHonors,
@@ -29,6 +30,7 @@ router.get("/get-doctors", getDoctors);
 router.get("/get-reviews", getReviews);
 router.get("/get-shorts", getShorts);
 router.get("/get-blogs", getBlogs);
+router.get("/get-blog-category", getBlogCategory);
 router.get("/get-gallery", getGallery);
 router.get("/get-careers", getCareers);
 router.get("/get-honors", getHonors);

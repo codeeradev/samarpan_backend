@@ -2,6 +2,7 @@ const User = require("../models/user");
 const Service = require("../models/service");
 const Review = require("../models/review");
 const Short = require("../models/short");
+const BlogCategory = require("../models/blogCategory");
 const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
 const Content = require("../models/content");
@@ -1674,11 +1675,107 @@ exports.deleteShort = async (req, res) => {
   }
 };
 
+exports.addBlogCategory = async (req, res) => {
+  try {
+    const { title, sortOrder, isActive } = req.body;
+
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
+    if (!title) {
+      return res.status(400).json({
+        message: "Title is required",
+      });
+    }
+
+    const category = await BlogCategory.create({
+      title,
+      image,
+      sortOrder: sortOrder !== undefined ? sortOrder : 0,
+      isActive: isActive !== undefined ? isActive : true,
+    });
+
+    return res.status(201).json({
+      message: "Blog category added successfully",
+      category,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+exports.getAllBlogCategories = async (req, res) => {
+  try {
+    const categories = await BlogCategory.find().sort({ sortOrder: 1, createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Blog categories retrieved successfully",
+      categories,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateBlogCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, sortOrder, isActive } = req.body;
+
+    const updateData = {};
+
+    if (title) updateData.title = title;
+    if (req.files?.image?.[0]?.filename) {
+      updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
+    }
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const category = await BlogCategory.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!category) {
+      return res.status(404).json({ message: "Blog category not found" });
+    }
+
+    return res.status(200).json({
+      message: "Blog category updated successfully",
+      category,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteBlogCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const category = await BlogCategory.findByIdAndDelete(id);
+
+    if (!category) {
+      return res.status(404).json({ message: "Blog category not found" });
+    }
+
+    return res.status(200).json({ message: "Blog category deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.addBlog = async (req, res) => {
   try {
     const {
       title,
       serviceId,
+      blogCategoryId,
       shortDescription,
       content,
       seo,
@@ -1693,6 +1790,7 @@ exports.addBlog = async (req, res) => {
     const newBlog = await Blog.create({
       title,
       serviceId,
+      blogCategoryId,
       image,
       shortDescription,
       content,
@@ -1746,6 +1844,7 @@ exports.updateBlog = async (req, res) => {
     const {
       title,
       serviceId,
+      blogCategoryId,
       shortDescription,
       content,
       seo,
@@ -1756,6 +1855,7 @@ exports.updateBlog = async (req, res) => {
     const updateData = {};
     if (title) updateData.title = title;
     if (serviceId) updateData.serviceId = serviceId;
+    if (blogCategoryId) updateData.blogCategoryId = blogCategoryId;
     if (req.files?.image?.[0]?.filename) {
       updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
     }

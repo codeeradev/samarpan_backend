@@ -1,0 +1,12 @@
+docker run -it --rm \
+  --name n8n \
+  -p 5678:5678 \
+  -e N8N_HOST=suzanna-nonformal-delicately.ngrok-free.dev \
+  -e N8N_PROTOCOL=https \
+  -e WEBHOOK_URL=https://suzanna-nonformal-delicately.ngrok-free.dev/ \
+  -v ~/.n8n:/home/node/.n8n \
+  docker.n8n.io/n8nio/n8n
+
+  https://suzanna-nonformal-delicately.ngrok-free.dev
+
+  ngrok http 5678
