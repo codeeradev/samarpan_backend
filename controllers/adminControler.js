@@ -480,13 +480,15 @@ exports.getServiceFeatures = async (req, res) => {
     const { type } = req.query;
 
     if (type === "sub_cat") {
-      const serviceSubCategory = await ServiceSubCategory.find().sort({createdAt:-1}).populate(
-        "serviceId featureServiceId",
-      );
+      const serviceSubCategory = await ServiceSubCategory.find()
+        .sort({ createdAt: -1 })
+        .populate("serviceId featureServiceId");
 
       return res.json(serviceSubCategory);
     }
-    const ServiceFeatures = await ServiceFeature.find().sort({createdAt:-1}).populate("serviceId");
+    const ServiceFeatures = await ServiceFeature.find()
+      .sort({ createdAt: -1 })
+      .populate("serviceId");
 
     return res.json(ServiceFeatures);
   } catch (error) {
@@ -545,7 +547,9 @@ exports.addServiceFeatures = async (req, res) => {
 
           metaDescription: parsedSeo?.metaDescription?.trim() || "",
 
-          keywords: Array.isArray(parsedSeo?.keywords) ? parsedSeo.keywords : [],
+          keywords: Array.isArray(parsedSeo?.keywords)
+            ? parsedSeo.keywords
+            : [],
         },
       });
 
@@ -784,9 +788,9 @@ exports.addDoctor = async (req, res) => {
 
 exports.getAllDoctors = async (req, res) => {
   try {
-    const doctors = await User.find({ roleId: ROLES.DOCTOR }).sort({createdAt:-1}).select(
-      "-password",
-    );
+    const doctors = await User.find({ roleId: ROLES.DOCTOR })
+      .sort({ createdAt: -1 })
+      .select("-password");
     return res
       .status(200)
       .json({ message: "Doctors retrieved successfully", doctors });
@@ -1709,7 +1713,10 @@ exports.addBlogCategory = async (req, res) => {
 };
 exports.getAllBlogCategories = async (req, res) => {
   try {
-    const categories = await BlogCategory.find().sort({ sortOrder: 1, createdAt: -1 });
+    const categories = await BlogCategory.find().sort({
+      sortOrder: 1,
+      createdAt: -1,
+    });
 
     return res.status(200).json({
       message: "Blog categories retrieved successfully",
@@ -1728,7 +1735,28 @@ exports.updateBlogCategory = async (req, res) => {
 
     const updateData = {};
 
-    if (title) updateData.title = title;
+    // title + slug update
+    if (title) {
+      updateData.title = title;
+
+      let baseSlug = slugify(title);
+      let slug = baseSlug;
+
+      // ensure unique slug
+      let count = 1;
+
+      while (
+        await BlogCategory.findOne({
+          slug,
+          _id: { $ne: id },
+        })
+      ) {
+        slug = `${baseSlug}-${count++}`;
+      }
+
+      updateData.slug = slug;
+    }
+
     if (req.files?.image?.[0]?.filename) {
       updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
     }
@@ -1763,7 +1791,9 @@ exports.deleteBlogCategory = async (req, res) => {
       return res.status(404).json({ message: "Blog category not found" });
     }
 
-    return res.status(200).json({ message: "Blog category deleted successfully" });
+    return res
+      .status(200)
+      .json({ message: "Blog category deleted successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
@@ -2478,7 +2508,7 @@ exports.updateSettings = async (req, res) => {
       data: settings,
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return res.status(500).json({
       success: false,
       message: "Error updating settings",

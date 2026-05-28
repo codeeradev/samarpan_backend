@@ -558,7 +558,7 @@ exports.getBlogCategory = async (req, res) => {
   }
 };
 
-  exports.getBlogs = async (req, res) => {
+exports.getBlogs = async (req, res) => {
   try {
     const { slug, type } = req.query;
 
