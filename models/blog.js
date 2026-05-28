@@ -1,6 +1,13 @@
 const mongoose = require("mongoose");
 
-const slugify = require("slugify");
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 const blogSchema = new mongoose.Schema(
   {
@@ -32,7 +39,7 @@ const blogSchema = new mongoose.Schema(
       ref: "Blog_Category",
       required: true,
     },
-
+    
     shortDescription: {
       type: String,
       required: true,
@@ -48,7 +55,7 @@ const blogSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
+    
     status: {
       type: String,
       enum: ["draft", "published"],
@@ -67,14 +74,7 @@ const blogSchema = new mongoose.Schema(
 blogSchema.pre("save", async function () {
   // slug auto
   if (!this.slug && this.title) {
-    
-    let baseSlug = slugify(this.title, {
-      lower: true,
-      strict: true,
-      locale: "hi",
-      trim: true,
-    });
-
+    let baseSlug = slugify(this.title);
     let slug = baseSlug;
 
     // ensure unique
