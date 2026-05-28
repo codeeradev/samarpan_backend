@@ -488,12 +488,43 @@ exports.getShorts = async (req, res) => {
 
 exports.getBlogCategory = async (req, res) => {
   try {
-    const { categorySlug, type } = req.query;
+    const { type } = req.query;
+    // =========================================================
+    // NOTHING SENT -> ALL BLOG CATEGORIES
+    // =========================================================
 
-    // =========================================================
-    // CATEGORY BLOGS
-    // categorySlug -> blogs of that category
-    // =========================================================
+    const filter = { isActive: true };
+    let limit = 0;
+
+    if (type === "home") {
+      limit = 6;
+    }
+
+    const blogCategory = await BlogCategory.find(filter)
+      .limit(limit)
+      .select("title slug image")
+      .sort({
+        sortOrder: 1,
+        createdAt: -1,
+      });
+
+    return res.status(200).json({
+      message: "Blog categories retrieved successfully",
+      blogCategory,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+exports.getBlogs = async (req, res) => {
+  try {
+    const { slug, categorySlug, type } = req.query;
+
     if (categorySlug) {
       const category = await BlogCategory.findOne({
         slug: categorySlug,
@@ -524,43 +555,6 @@ exports.getBlogCategory = async (req, res) => {
         blogs: blogs.filter((blog) => blog.blogCategoryId),
       });
     }
-
-    // =========================================================
-    // NOTHING SENT -> ALL BLOG CATEGORIES
-    // =========================================================
-
-        const filter = { isActive: true };
-    let limit = 0;
-
-    if (type === "home") {
-      limit = 6;
-    }
-
-
-    const blogCategory = await BlogCategory.find(filter)
-      .limit(limit)
-      .select("title slug image")
-      .sort({
-        sortOrder: 1,
-        createdAt: -1,
-      });
-
-    return res.status(200).json({
-      message: "Blog categories retrieved successfully",
-      blogCategory,
-    });
-  } catch (error) {
-    console.error(error);
-
-    return res.status(500).json({
-      message: "Server error",
-    });
-  }
-};
-
-exports.getBlogs = async (req, res) => {
-  try {
-    const { slug, type } = req.query;
 
     const filter = { status: "published" };
     let limit = 0;
