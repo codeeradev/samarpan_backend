@@ -1,15 +1,6 @@
 const mongoose = require("mongoose");
 
-const slugify = require("slugify");
-
-// function slugify(text) {
-//   return text
-//     .toLowerCase()
-//     .trim()
-//     .replace(/[^a-z0-9\s-]/g, "")
-//     .replace(/\s+/g, "-")
-//     .replace(/-+/g, "-");
-// }
+const generateSlug = require("../utils/slugGenerater");
 
 const procedureSchema = new mongoose.Schema(
   {
@@ -50,12 +41,7 @@ const procedureSchema = new mongoose.Schema(
 procedureSchema.pre("save", async function () {
   // slug auto
   if (!this.slug && this.title) {
-    let baseSlug = slugify(this.title, {
-      lower: true,
-      strict: false,
-      locale: "hi",
-      trim: true,
-    });
+    let baseSlug = generateSlug(this.title);
     let slug = baseSlug;
 
     // ensure unique

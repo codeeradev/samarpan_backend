@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const slugify = require("slugify");
+const generateSlug = require("../utils/slugGenerater");
 
 const blogSchema = new mongoose.Schema(
   {
@@ -68,12 +68,7 @@ blogSchema.pre("save", async function () {
   // slug auto
   if (!this.slug && this.title) {
   
-    let baseSlug = slugify(this.title, {
-      lower: true,
-      strict: false,
-      locale: "hi",
-      trim: true,
-    });
+    let baseSlug = generateSlug(this.title);
 
     let slug = baseSlug;
 

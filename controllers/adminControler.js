@@ -1,4 +1,4 @@
-const slugify = require("slugify");
+const generateSlug = require("../utils/slugGenerater");
 const User = require("../models/user");
 const Service = require("../models/service");
 const Review = require("../models/review");
@@ -70,14 +70,6 @@ const parseBoolean = (value) => {
 
   return undefined;
 };
-
-const slugifi = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
 
 const normalizePageStatus = (value) => {
   const status = normalizeText(value).toLowerCase();
@@ -1740,14 +1732,13 @@ exports.updateBlogCategory = async (req, res) => {
     if (title) {
       updateData.title = title;
 
-      let baseSlug = slugifi(title);
-      let slug = baseSlug;
+      let baseSlug = generateSlug(title);
 
-      // ensure unique slug
+      let slug = baseSlug;
       let count = 1;
 
       while (
-        await BlogCategory.findOne({
+        await Blog.findOne({
           slug,
           _id: { $ne: id },
         })
@@ -1887,12 +1878,7 @@ exports.updateBlog = async (req, res) => {
     if (title) {
       updateData.title = title;
 
-      let baseSlug = slugify(title, {
-        lower: true,
-        strict: false,
-        locale: "hi",
-        trim: true,
-      });
+      let baseSlug = generateSlug(title);
 
       let slug = baseSlug;
       let count = 1;
@@ -2139,7 +2125,7 @@ exports.addPage = async (req, res) => {
   try {
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
-    const slug = rawSlug || slugifi(title);
+    const slug = rawSlug || generateSlug(title);
     const content =
       typeof req.body.content === "string" ? req.body.content : "";
     const seoInput = parseJson(req.body.seo) || req.body.seo || {};
@@ -2206,7 +2192,7 @@ exports.updatePage = async (req, res) => {
     const { id } = req.params;
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
-    const slug = rawSlug || slugifi(title);
+    const slug = rawSlug || generateSlug(title);
     const seoInput = parseJson(req.body.seo) || req.body.seo || {};
     const requestedStatus = normalizePageStatus(req.body.status);
     const isActive = parseBoolean(req.body.isActive);
@@ -2290,7 +2276,7 @@ exports.addCareer = async (req, res) => {
   try {
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
-    const slug = rawSlug || slugifi(title);
+    const slug = rawSlug || generateSlug(title);
     const status =
       normalizeCareerStatus(req.body.status) ||
       (parseBoolean(req.body.isActive) === false ? "draft" : "open");
@@ -2385,7 +2371,7 @@ exports.updateCareer = async (req, res) => {
     const rawSlug = hasField("slug")
       ? normalizeText(req.body.slug).toLowerCase()
       : existingCareer.slug;
-    const slug = rawSlug || slugifi(title);
+    const slug = rawSlug || generateSlug(title);
     const requestedStatus = normalizeCareerStatus(req.body.status);
     const isActive = parseBoolean(req.body.isActive);
     const status =
