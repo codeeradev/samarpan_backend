@@ -1,13 +1,15 @@
 const mongoose = require("mongoose");
 
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
+const slugify = require("slugify");
+
+// function slugify(text) {
+//   return text
+//     .toLowerCase()
+//     .trim()
+//     .replace(/[^a-z0-9\s-]/g, "")
+//     .replace(/\s+/g, "-")
+//     .replace(/-+/g, "-");
+// }
 
 const serviceFeatureSchema = new mongoose.Schema(
   {
@@ -43,8 +45,15 @@ const serviceFeatureSchema = new mongoose.Schema(
 );
 
 serviceFeatureSchema.pre("save", async function () {
+
   if (!this.slug && this.title) {
-    let baseSlug = slugify(this.title);
+    let baseSlug = slugify(this.title, {
+      lower: true,
+      strict: true,
+      locale: "hi",
+      trim: true,
+    });
+    
     let slug = baseSlug;
     let counter = 1;
 
