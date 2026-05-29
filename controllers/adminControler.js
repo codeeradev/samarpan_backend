@@ -1,3 +1,4 @@
+const slugify = require("slugify");
 const User = require("../models/user");
 const Service = require("../models/service");
 const Review = require("../models/review");
@@ -1883,7 +1884,31 @@ exports.updateBlog = async (req, res) => {
     } = req.body;
 
     const updateData = {};
-    if (title) updateData.title = title;
+    if (title) {
+      updateData.title = title;
+
+      let baseSlug = slugify(title, {
+        lower: true,
+        strict: true,
+        locale: "hi",
+        trim: true,
+      });
+
+      let slug = baseSlug;
+      let count = 1;
+
+      while (
+        await Blog.findOne({
+          slug,
+          _id: { $ne: id },
+        })
+      ) {
+        slug = `${baseSlug}-${count++}`;
+      }
+
+      updateData.slug = slug;
+    }
+
     if (serviceId) updateData.serviceId = serviceId;
     if (blogCategoryId) updateData.blogCategoryId = blogCategoryId;
     if (req.files?.image?.[0]?.filename) {
