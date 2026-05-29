@@ -70,7 +70,7 @@ blogSchema.pre("save", async function () {
   
     let baseSlug = slugify(this.title, {
       lower: true,
-      strict: true,
+      strict: false,
       locale: "hi",
       trim: true,
     });

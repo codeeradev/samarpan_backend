@@ -1889,7 +1889,7 @@ exports.updateBlog = async (req, res) => {
 
       let baseSlug = slugify(title, {
         lower: true,
-        strict: true,
+        strict: false,
         locale: "hi",
         trim: true,
       });
