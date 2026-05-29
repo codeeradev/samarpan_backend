@@ -71,7 +71,7 @@ const parseBoolean = (value) => {
   return undefined;
 };
 
-const slugify = (value) =>
+const slugifi = (value) =>
   String(value || "")
     .trim()
     .toLowerCase()
@@ -1740,7 +1740,7 @@ exports.updateBlogCategory = async (req, res) => {
     if (title) {
       updateData.title = title;
 
-      let baseSlug = slugify(title);
+      let baseSlug = slugifi(title);
       let slug = baseSlug;
 
       // ensure unique slug
@@ -2139,7 +2139,7 @@ exports.addPage = async (req, res) => {
   try {
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
-    const slug = rawSlug || slugify(title);
+    const slug = rawSlug || slugifi(title);
     const content =
       typeof req.body.content === "string" ? req.body.content : "";
     const seoInput = parseJson(req.body.seo) || req.body.seo || {};
@@ -2206,7 +2206,7 @@ exports.updatePage = async (req, res) => {
     const { id } = req.params;
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
-    const slug = rawSlug || slugify(title);
+    const slug = rawSlug || slugifi(title);
     const seoInput = parseJson(req.body.seo) || req.body.seo || {};
     const requestedStatus = normalizePageStatus(req.body.status);
     const isActive = parseBoolean(req.body.isActive);
@@ -2290,7 +2290,7 @@ exports.addCareer = async (req, res) => {
   try {
     const title = normalizeText(req.body.title);
     const rawSlug = normalizeText(req.body.slug).toLowerCase();
-    const slug = rawSlug || slugify(title);
+    const slug = rawSlug || slugifi(title);
     const status =
       normalizeCareerStatus(req.body.status) ||
       (parseBoolean(req.body.isActive) === false ? "draft" : "open");
@@ -2385,7 +2385,7 @@ exports.updateCareer = async (req, res) => {
     const rawSlug = hasField("slug")
       ? normalizeText(req.body.slug).toLowerCase()
       : existingCareer.slug;
-    const slug = rawSlug || slugify(title);
+    const slug = rawSlug || slugifi(title);
     const requestedStatus = normalizeCareerStatus(req.body.status);
     const isActive = parseBoolean(req.body.isActive);
     const status =
