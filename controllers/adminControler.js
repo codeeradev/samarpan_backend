@@ -886,7 +886,7 @@ exports.getAllPatients = async (req, res) => {
     })
       .sort({ createdAt: -1, updatedAt: -1 })
       .select(
-        "_id fullName phoneNumber email appointmentDate age gender address bloodGroup medicalHistory status dischargedAt createdAt updatedAt",
+        "_id fullName phoneNumber email doctorName appointmentDate age gender address bloodGroup medicalHistory status dischargedAt createdAt updatedAt",
       );
 
     const patients = appointments.map((appointment) => ({
@@ -894,6 +894,7 @@ exports.getAllPatients = async (req, res) => {
       name: appointment.fullName,
       phone: appointment.phoneNumber,
       email: appointment.email,
+      doctor: appointment.doctorName ?? "",
       age: appointment.age ?? null,
       gender: appointment.gender ?? null,
       address: appointment.address ?? "",
