@@ -8,5 +8,5 @@ docker run -it --rm \
   docker.n8n.io/n8nio/n8n
 
   https://suzanna-nonformal-delicately.ngrok-free.dev
-
+https://suzanna-nonformal-delicately.ngrok-free.dev/rest/oauth2-credential/callback
   ngrok http 5678

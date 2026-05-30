@@ -1704,6 +1704,7 @@ exports.addBlogCategory = async (req, res) => {
     });
   }
 };
+
 exports.getAllBlogCategories = async (req, res) => {
   try {
     const categories = await BlogCategory.find().sort({
