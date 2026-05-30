@@ -525,7 +525,7 @@ exports.getBlogs = async (req, res) => {
   try {
     const { slug, categorySlug, type } = req.query;
 
-    if (categorySlug && categorySlug !== null) {
+    if (categorySlug && categorySlug !== "null") {
       const category = await BlogCategory.findOne({
         slug: categorySlug,
         isActive: true,
