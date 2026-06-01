@@ -64,7 +64,24 @@ const getVisitorStats = async (match = {}) => {
 };
 
 const pageSections = [
-  { key: "blogs", title: "Blogs", prefix: "/blogs" },
+  {
+    key: "blog-categories",
+    title: "Blog Categories",
+    matcher: (page) => page === "/#blog",
+  },
+  {
+    key: "blog-listing-pages",
+    title: "Blog Listing Pages",
+    matcher: (page) => {
+      const [path] = page.split("#");
+      return path === "/blogs" || path.startsWith("/blogs?");
+    },
+  },
+  {
+    key: "blog-detail-pages",
+    title: "Blog Detail Pages",
+    matcher: (page) => page.split("?")[0].split("#")[0].startsWith("/blogs/"),
+  },
   { key: "services", title: "Services", prefix: "/services" },
   {
     key: "cosmetic-procedures",
@@ -75,11 +92,15 @@ const pageSections = [
 ];
 
 const getPageSection = (page) => {
-  const cleanPage = normalizePage(page).split("?")[0].split("#")[0];
+  const normalizedPage = normalizePage(page);
+  const cleanPage = normalizedPage.split("?")[0].split("#")[0];
 
   return pageSections.find(
     (section) =>
-      cleanPage === section.prefix || cleanPage.startsWith(`${section.prefix}/`),
+      (typeof section.matcher === "function" && section.matcher(normalizedPage)) ||
+      (section.prefix &&
+        (cleanPage === section.prefix ||
+          cleanPage.startsWith(`${section.prefix}/`))),
   );
 };
 
