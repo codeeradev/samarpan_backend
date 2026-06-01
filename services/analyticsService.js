@@ -42,14 +42,104 @@ const getDateDaysAgo = (base, daysAgo) => {
   return d;
 };
 
-const countUniqueVisitors = async (match = {}) => {
+const getVisitorStats = async (match = {}) => {
   const result = await AnalyticsEvent.aggregate([
     { $match: match },
-    { $group: { _id: "$visitorId" } },
-    { $count: "count" },
+    { $group: { _id: "$visitorId", pageViews: { $sum: 1 } } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        unique: {
+          $sum: { $cond: [{ $eq: ["$pageViews", 1] }, 1, 0] },
+        },
+        repeated: {
+          $sum: { $cond: [{ $gt: ["$pageViews", 1] }, 1, 0] },
+        },
+      },
+    },
   ]);
 
-  return result[0]?.count || 0;
+  return result[0] || { total: 0, unique: 0, repeated: 0 };
+};
+
+const pageSections = [
+  { key: "blogs", title: "Blogs", prefix: "/blogs" },
+  { key: "services", title: "Services", prefix: "/services" },
+  {
+    key: "cosmetic-procedures",
+    title: "Cosmetic Procedures",
+    prefix: "/cosmetic-procedures",
+  },
+  { key: "careers", title: "Careers", prefix: "/careers" },
+];
+
+const getPageSection = (page) => {
+  const cleanPage = normalizePage(page).split("?")[0].split("#")[0];
+
+  return pageSections.find(
+    (section) =>
+      cleanPage === section.prefix || cleanPage.startsWith(`${section.prefix}/`),
+  );
+};
+
+const buildPageSummaries = (pageStatsRaw) => {
+  const sectionMap = new Map();
+  const directPages = [];
+
+  for (const row of pageStatsRaw) {
+    const page = normalizePage(row.page);
+    const section = getPageSection(page);
+    const pageSummary = {
+      page,
+      pageViews: row.pageViews,
+      visitors: row.visitors,
+    };
+
+    if (!section) {
+      directPages.push(pageSummary);
+      continue;
+    }
+
+    const existing = sectionMap.get(section.key) || {
+      key: section.key,
+      title: section.title,
+      pageViews: 0,
+      visitorIds: new Set(),
+      pages: [],
+    };
+
+    existing.pageViews += row.pageViews;
+    for (const visitorId of row.visitorIds || []) {
+      existing.visitorIds.add(visitorId);
+    }
+    existing.pages.push(pageSummary);
+    sectionMap.set(section.key, existing);
+  }
+
+  const pageGroups = Array.from(sectionMap.values()).map((section) => ({
+    key: section.key,
+    title: section.title,
+    pageViews: section.pageViews,
+    visitors: section.visitorIds.size,
+    pages: section.pages.sort((a, b) => {
+      if (b.pageViews !== a.pageViews) return b.pageViews - a.pageViews;
+      return a.page.localeCompare(b.page);
+    }),
+  }));
+
+  return {
+    topPages: directPages
+      .sort((a, b) => {
+        if (b.pageViews !== a.pageViews) return b.pageViews - a.pageViews;
+        return a.page.localeCompare(b.page);
+      })
+      .slice(0, 10),
+    pageGroups: pageGroups.sort((a, b) => {
+      if (b.pageViews !== a.pageViews) return b.pageViews - a.pageViews;
+      return a.title.localeCompare(b.title);
+    }),
+  };
 };
 
 const trackPageView = async ({ visitorId, page }) => {
@@ -84,17 +174,17 @@ const getAnalyticsDashboard = async () => {
     last7DaysVisitors,
     last30DaysVisitors,
     totalPageViews,
-    topPages,
+    pageStatsRaw,
     dailyVisitorsRaw,
   ] = await Promise.all([
-    countUniqueVisitors(),
-    countUniqueVisitors({
+    getVisitorStats(),
+    getVisitorStats({
       createdAt: { $gte: todayStart, $lte: todayEnd },
     }),
-    countUniqueVisitors({
+    getVisitorStats({
       createdAt: { $gte: last7Start, $lte: todayEnd },
     }),
-    countUniqueVisitors({
+    getVisitorStats({
       createdAt: { $gte: last30Start, $lte: todayEnd },
     }),
     AnalyticsEvent.countDocuments({}),
@@ -103,7 +193,7 @@ const getAnalyticsDashboard = async () => {
         $group: {
           _id: "$page",
           pageViews: { $sum: 1 },
-          visitors: { $addToSet: "$visitorId" },
+          visitorIds: { $addToSet: "$visitorId" },
         },
       },
       {
@@ -111,11 +201,11 @@ const getAnalyticsDashboard = async () => {
           _id: 0,
           page: "$_id",
           pageViews: 1,
-          visitors: { $size: "$visitors" },
+          visitorIds: 1,
+          visitors: { $size: "$visitorIds" },
         },
       },
       { $sort: { pageViews: -1, page: 1 } },
-      { $limit: 10 },
     ]),
     AnalyticsEvent.aggregate([
       { $match: { createdAt: { $gte: last7Start, $lte: todayEnd } } },
@@ -147,6 +237,7 @@ const getAnalyticsDashboard = async () => {
     acc[row._id] = row.visitors;
     return acc;
   }, {});
+  const { topPages, pageGroups } = buildPageSummaries(pageStatsRaw);
 
   return {
     totals: {
@@ -157,6 +248,7 @@ const getAnalyticsDashboard = async () => {
       totalPageViews,
     },
     topPages,
+    pageGroups,
     dailyVisitors: last7Days.map((date) => {
       const day = buildDayKey(date);
       return {
