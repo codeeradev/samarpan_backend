@@ -5,6 +5,7 @@ const upload = require("../middleware/multer");
 const checkPermission = require("../middleware/checkPermisson");
 const checkAdmin = require("../middleware/checkAdmin");
 const router = express.Router();
+const { getAnalytics } = require("../controllers/analyticsController");
 
 const {
   adminLogin,
@@ -169,6 +170,7 @@ router.post("/delete-doctor/:id", verifyToken, checkAdmin, deleteDoctor);
 router.get("/get-appointments", verifyToken, getAppointments);
 router.post("/update-appointment/:id", verifyToken, updateAppointment);
 router.get("/get-dashboard", verifyToken, getDashboard);
+router.get("/get-analytics", verifyToken, getAnalytics);
 router.post(
   "/add-short",
   verifyToken,

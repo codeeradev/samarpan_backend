@@ -1,5 +1,9 @@
 const express = require("express");
 const {
+  trackAnalytics,
+} = require("../controllers/analyticsController");
+
+const {
   submitAppointment,
   getServices,
   getServicesFeatures,
@@ -24,6 +28,7 @@ const upload = require("../middleware/multer");
 const router = express.Router();
 
 router.post("/submit-appointment", submitAppointment);
+router.post("/analytics/track", trackAnalytics);
 router.get("/get-services", getServices);
 router.get("/get-services-features", getServicesFeatures);
 router.get("/get-doctors", getDoctors);
