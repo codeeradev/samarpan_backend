@@ -1,0 +1,180 @@
+You are a senior full-stack engineer.
+
+Implement a complete Meta Analytics module inside an existing React + Vite Admin Dashboard and Node.js + Express + MongoDB backend.
+
+Context:
+
+* A website analytics dashboard already exists.
+* Do NOT replace the existing dashboard.
+* Create a new sidebar menu item called "Meta Analytics".
+* The feature should support Facebook Pages and Instagram Business Accounts connected through Meta Login.
+
+User Flow:
+
+1. Admin opens Admin Panel.
+2. Admin clicks "Meta Analytics" in sidebar.
+3. If no Meta account is connected:
+
+   * Show a "Connect Facebook & Instagram" button.
+   * Start Meta OAuth flow.
+4. After successful login:
+
+   * Fetch available Facebook Pages.
+   * Allow admin to select a Page.
+   * Automatically detect linked Instagram Business Account.
+5. Save connection.
+6. Open Meta Analytics Dashboard.
+
+Frontend Requirements:
+
+Create a dedicated Meta Analytics page.
+
+Connection State:
+
+* Connected Account Card
+* Facebook Page Name
+* Facebook Page Picture
+* Instagram Username
+* Connected Date
+* Disconnect Button
+
+Overview Cards:
+
+* Followers
+* Reach
+* Impressions
+* Engagement
+* Profile Visits
+* Website Clicks
+* Total Posts
+* Total Reels
+
+Charts:
+
+* Followers Growth
+* Reach Trend
+* Engagement Trend
+* Impressions Trend
+
+Filters:
+
+* Today
+* 7 Days
+* 30 Days
+* 90 Days
+* Custom Range
+
+Posts Table:
+Columns:
+
+* Thumbnail
+* Platform
+* Caption
+* Posted Date
+* Likes
+* Comments
+* Reach
+* Impressions
+* Engagement Rate
+
+Top Performing Posts Section:
+
+* Top 10 posts sorted by engagement.
+
+Backend Requirements:
+
+Create a Meta Integration module.
+
+Collections:
+
+MetaAccount
+
+{
+adminId,
+pageId,
+pageName,
+pagePicture,
+instagramBusinessAccountId,
+instagramUsername,
+accessToken,
+tokenExpiresAt,
+connectedAt,
+status
+}
+
+MetaAnalyticsDaily
+
+{
+adminId,
+date,
+followers,
+reach,
+impressions,
+engagement,
+profileVisits,
+websiteClicks
+}
+
+API Endpoints:
+
+GET /api/meta/connect
+
+GET /api/meta/callback
+
+GET /api/meta/status
+
+POST /api/meta/disconnect
+
+GET /api/meta/pages
+
+POST /api/meta/select-page
+
+GET /api/meta/overview
+
+GET /api/meta/followers
+
+GET /api/meta/reach
+
+GET /api/meta/impressions
+
+GET /api/meta/posts
+
+GET /api/meta/top-posts
+
+Meta Permissions Required:
+
+pages_show_list
+pages_read_engagement
+instagram_basic
+instagram_manage_insights
+read_insights
+business_management
+
+Analytics Sources:
+
+Facebook Graph API
+
+Instagram Graph API
+
+Store analytics history in MongoDB so charts continue to work even if Meta temporarily limits requests.
+
+Implement:
+
+* Token validation
+* Automatic token refresh
+* Proper error handling
+* Loading states
+* Reconnection flow
+* Disconnect flow
+
+UI Requirements:
+
+* Match existing admin dashboard design.
+* Reuse existing card components.
+* Reuse existing chart components if available.
+* Responsive desktop and mobile layout.
+
+Expected Deliverables:
+
+1. new Controllers and route for meta work
+2. Setup instructions

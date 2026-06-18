@@ -7,6 +7,42 @@ docker run -it --rm \
   -v ~/.n8n:/home/node/.n8n \
   docker.n8n.io/n8nio/n8n
 
+
+docker run -d \
+--name n8n \
+--restart unless-stopped \
+-p 5678:5678 \
+-v /opt/n8n_data:/home/node/.n8n \
+-e TZ=Asia/Kolkata \
+-e N8N_SECURE_COOKIE=false \
+docker.n8n.io/n8nio/n8n
+
+docker run -it --rm \
+  --name n8n \
+  -p 5678:5678 \
+  -v ~/.n8n:/home/node/.n8n \
+  docker.n8n.io/n8nio/n8n
+
   https://suzanna-nonformal-delicately.ngrok-free.dev
 https://suzanna-nonformal-delicately.ngrok-free.dev/rest/oauth2-credential/callback
-  ngrok http 5678
+ngrok http 5678
+ps -fp 2040471
+
+
+Meta Analytics setup
+
+Add these values to the backend .env file:
+
+META_APP_ID=995778152835724
+META_APP_SECRET=your_meta_app_secret
+META_REDIRECT_URI=http://localhost:5173/meta/callback
+
+Optional:
+
+META_GRAPH_VERSION=v20.0
+
+The admin panel callback route is /meta/callback. Configure the same URL in the
+Meta app Valid OAuth Redirect URIs. The backend exposes the admin-only Meta API
+under /api/meta and stores selected Page and Instagram Business analytics in
+MongoDB so charts can use stored daily history if Graph API requests are
+temporarily limited.
