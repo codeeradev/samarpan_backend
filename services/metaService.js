@@ -5,8 +5,6 @@ const MetaAnalyticsDaily = require("../models/metaAnalyticsDaily");
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v20.0";
 const GRAPH_BASE_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const META_PERMISSIONS = [
-  "public_profile",
-  // "user_posts",
   "pages_show_list",
   "pages_read_engagement",
   "pages_read_user_content",
@@ -179,18 +177,6 @@ const getExpiryDate = (expiresIn) => {
   return new Date(Date.now() + Number(expiresIn) * 1000);
 };
 
-const fetchConnectedUser = async (accessToken) => {
-  try {
-    return await graphGet("/me", {
-      access_token: accessToken,
-      fields: "id,name,picture{url}",
-    });
-  } catch (error) {
-    console.warn("Meta user profile unavailable:", error.message);
-    return null;
-  }
-};
-
 const handleOAuthCallback = async ({ code, state }) => {
   if (!code || !state) {
     const error = new Error("Missing Meta OAuth code or state");
@@ -216,15 +202,11 @@ const handleOAuthCallback = async ({ code, state }) => {
   const shortToken = await exchangeCodeForToken(code);
   const longToken = await exchangeLongLivedToken(shortToken.access_token);
   const tokenExpiresAt = getExpiryDate(longToken.expires_in);
-  const connectedUser = await fetchConnectedUser(longToken.access_token);
 
   await MetaAccount.findOneAndUpdate(
     { adminId: decoded.adminId },
     {
       adminId: decoded.adminId,
-      userId: connectedUser?.id || "",
-      userName: connectedUser?.name || "",
-      userPicture: connectedUser?.picture?.data?.url || "",
       userAccessToken: longToken.access_token,
       accessToken: longToken.access_token,
       tokenExpiresAt,
@@ -236,7 +218,7 @@ const handleOAuthCallback = async ({ code, state }) => {
       instagramUsername: "",
       connectedAt: null,
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
   return { adminId: decoded.adminId, needsPageSelection: true };
@@ -246,9 +228,6 @@ const sanitizeAccount = (account) => {
   if (!account) return null;
   return {
     id: account._id,
-    userId: account.userId,
-    userName: account.userName,
-    userPicture: account.userPicture,
     pageId: account.pageId,
     pageName: account.pageName,
     pagePicture: account.pagePicture,
@@ -370,7 +349,7 @@ const getPages = async (adminId) => {
   const response = await graphGet("/me/accounts", {
     access_token: getUserAccessToken(account),
     fields:
-      "id,name,access_token,picture{url},instagram_business_account{id,username}",
+      "id,name,access_token,picture,instagram_business_account{id,username}",
     limit: 100,
   });
 
@@ -409,9 +388,6 @@ const selectPage = async ({ adminId, pageId }) => {
     { adminId },
     {
       adminId,
-      userId: existing?.userId || "",
-      userName: existing?.userName || "",
-      userPicture: existing?.userPicture || "",
       userAccessToken,
       pageId: page.pageId,
       pageName: page.pageName,
@@ -423,19 +399,8 @@ const selectPage = async ({ adminId, pageId }) => {
       status: "active",
       connectedAt: new Date(),
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
-
-  if (!account.userId && userAccessToken) {
-    const connectedUser = await fetchConnectedUser(userAccessToken);
-    if (connectedUser) {
-      account.userId = connectedUser.id || "";
-      account.userName = connectedUser.name || "";
-      account.userPicture = connectedUser.picture?.data?.url || "";
-      account.userAccessToken = userAccessToken;
-      await account.save();
-    }
-  }
 
   return sanitizeAccount(account);
 };
@@ -461,18 +426,43 @@ const fetchInsights = async ({
   period,
   since,
   until,
+  additionalParams = {},
 }) => {
+  const baseParams = {
+    access_token: accessToken,
+    period,
+    since: toUnix(since),
+    until: toUnix(addDays(until, 1)),
+  };
+
   try {
-    return await graphGet(`/${id}/insights`, {
-      access_token: accessToken,
+    const params = {
+      ...baseParams,
       metric: metrics.join(","),
-      period,
-      since: toUnix(since),
-      until: toUnix(addDays(until, 1)),
-    });
+      ...additionalParams,
+    };
+    return await graphGet(`/${id}/insights`, params);
   } catch (error) {
-    console.warn(`Meta insights unavailable for ${id}:`, error.message);
-    return { data: [] };
+    // Retry with individual metrics if combined fails
+    try {
+      const results = [];
+      for (const metric of metrics) {
+        try {
+          const result = await graphGet(`/${id}/insights`, {
+            ...baseParams,
+            metric,
+            ...additionalParams,
+          });
+          if (result.data) results.push(...result.data);
+        } catch {
+          // Skip individual metric on failure
+        }
+      }
+      return { data: results };
+    } catch (retryError) {
+      console.warn(`Meta insights unavailable for ${id}:`, retryError.message);
+      return { data: [] };
+    }
   }
 };
 
@@ -494,46 +484,13 @@ const getLastStoredFollowers = async (adminId) => {
 
 const emptyPlatformMetrics = () => ({
   followers: 0,
+  followerAdds: 0,
   reach: 0,
   impressions: 0,
   engagement: 0,
   profileVisits: 0,
   websiteClicks: 0,
 });
-
-const buildDailyEngagementFromPosts = (posts, days) => {
-  const byDay = {};
-  days.forEach((date) => {
-    byDay[formatDay(date)] = { ...emptyPlatformMetrics() };
-  });
-
-  posts.forEach((post) => {
-    const day = formatDay(post.postedDate);
-    if (!byDay[day]) return;
-    const likes = Number(post.likes || 0);
-    const comments = Number(post.comments || 0);
-    byDay[day].engagement += likes + comments;
-  });
-
-  return byDay;
-};
-
-const fetchProfileFollowers = async (account) => {
-  if (!account.userId) return 0;
-  try {
-    const profile = await graphGet(`/${account.userId}`, {
-      access_token: getUserAccessToken(account),
-      fields: "friends.summary(true), followers_count",
-    });
-    return (
-      Number(profile.followers_count || 0) ||
-      Number(profile.friends?.summary?.total_count || 0)
-    );
-  } catch (error) {
-    console.warn("Meta profile follower count unavailable:", error.message);
-    return 0;
-  }
-};
 
 const fetchPageFollowers = async (account) => {
   try {
@@ -577,122 +534,67 @@ const getPageMessageStats = async (account) => {
   }
 };
 
-const fetchProfilePostsRaw = async (account, limit = 100) => {
-  if (!account.userId) return [];
-  try {
-    const response = await graphGet(`/${account.userId}/posts`, {
-      access_token: getUserAccessToken(account),
-      fields:
-        "id,name,picture{url},message,created_time,full_picture,picture,likes.summary(true),comments.summary(true)",
-      limit,
-    });
-
-    console.log(account.userId);
-    console.log(account.userName);
-    console.log("PROFILE POSTS RESPONSE");
-    console.dir(response, { depth: null });
-    return response.data || [];
-  } catch (error) {
-    console.error("PROFILE POSTS ERROR");
-    console.error(error.message);
-
-    console.warn("Meta profile posts unavailable:", error.message);
-    return [];
-  }
-};
-
-const getProfileMediaCount = async (account) => {
-  const items = await fetchProfilePostsRaw(account);
-  return {
-    totalPosts: items.length,
-    totalReels: 0,
-    totalLikes: items.reduce(
-      (sum, item) => sum + Number(item.likes?.summary?.total_count || 0),
-      0,
-    ),
-    totalComments: items.reduce(
-      (sum, item) => sum + Number(item.comments?.summary?.total_count || 0),
-      0,
-    ),
-    followers: await fetchProfileFollowers(account),
-  };
-};
-
 const syncAnalyticsRange = async ({ adminId, startDate, endDate }) => {
   const account = await getActiveAccount(adminId);
   const days = buildDayList(startDate, endDate);
   const hasInstagram = Boolean(account.instagramBusinessAccountId);
   const pageAccessToken = getPageAccessToken(account);
 
-  const [
-    instagramInsights,
-    pageInsights,
-    profilePostsRaw,
-    profileFollowersCount,
-    pageFollowersCount,
-  ] = await Promise.all([
-    hasInstagram
-      ? fetchInsights({
-          id: account.instagramBusinessAccountId,
-          accessToken: pageAccessToken,
-          metrics: [
-            "follower_count",
-            "reach",
-            "impressions",
-            "profile_views",
-            "website_clicks",
-            "total_interactions",
-          ],
-          period: "day",
-          since: startDate,
-          until: endDate,
-        })
-      : Promise.resolve({ data: [] }),
-    fetchInsights({
-      id: account.pageId,
-      accessToken: pageAccessToken,
-      metrics: [
-        "page_follows",
-        "page_impressions",
-        "page_impressions_unique",
-        "page_post_engagements",
-        "page_views_total",
-        "page_website_clicks_logged_in_unique",
-      ],
-      period: "day",
-      since: startDate,
-      until: endDate,
-    }),
-    fetchProfilePostsRaw(account),
-    fetchProfileFollowers(account),
-    fetchPageFollowers(account),
-  ]);
+  const [igBasicInsights, igDetailedInsights, pageInsights, pageFollowersCount] =
+    await Promise.all([
+      hasInstagram
+        ? fetchInsights({
+            id: account.instagramBusinessAccountId,
+            accessToken: pageAccessToken,
+            metrics: ["follower_count", "reach"],
+            period: "day",
+            since: startDate,
+            until: endDate,
+          })
+        : Promise.resolve({ data: [] }),
+      hasInstagram
+        ? fetchInsights({
+            id: account.instagramBusinessAccountId,
+            accessToken: pageAccessToken,
+            metrics: ["profile_views", "website_clicks", "total_interactions"],
+            period: "day",
+            since: startDate,
+            until: endDate,
+            additionalParams: { metric_type: "total_value" },
+          })
+        : Promise.resolve({ data: [] }),
+      fetchInsights({
+        id: account.pageId,
+        accessToken: pageAccessToken,
+        metrics: [
+          "page_fan_adds",
+          "page_impressions",
+          "page_impressions_unique",
+          "page_engaged_users",
+          "page_views_total",
+          "page_website_clicks_logged_in_unique",
+        ],
+        period: "day",
+        since: startDate,
+        until: endDate,
+      }),
+      fetchPageFollowers(account),
+    ]);
 
-  const profilePosts = profilePostsRaw.map((item) => ({
-    postedDate: item.created_time,
-    likes: item.likes?.summary?.total_count,
-    comments: item.comments?.summary?.total_count,
-  }));
-  const profileDailyEngagement = buildDailyEngagementFromPosts(
-    profilePosts,
-    days,
-  );
-
-  const igFollowers = mapDailyInsights(instagramInsights, "follower_count");
-  const igReach = mapDailyInsights(instagramInsights, "reach");
-  const igImpressions = mapDailyInsights(instagramInsights, "impressions");
-  const igProfileViews = mapDailyInsights(instagramInsights, "profile_views");
-  const igWebsiteClicks = mapDailyInsights(instagramInsights, "website_clicks");
+  const igFollowers = mapDailyInsights(igBasicInsights, "follower_count");
+  const igReach = mapDailyInsights(igBasicInsights, "reach");
+  const igProfileViews = mapDailyInsights(igDetailedInsights, "profile_views");
+  const igWebsiteClicks = mapDailyInsights(igDetailedInsights, "website_clicks");
   const igEngagement = mapDailyInsights(
-    instagramInsights,
+    igDetailedInsights,
     "total_interactions",
   );
-  const pageFollowsDaily = mapDailyInsights(pageInsights, "page_follows");
+  const pageFollowsDaily = mapDailyInsights(pageInsights, "page_fan_adds");
   const pageReach = mapDailyInsights(pageInsights, "page_impressions_unique");
   const pageImpressions = mapDailyInsights(pageInsights, "page_impressions");
   const pageEngagement = mapDailyInsights(
     pageInsights,
-    "page_post_engagements",
+    "page_engaged_users",
   );
   const pageProfileVisits = mapDailyInsights(pageInsights, "page_views_total");
   const pageWebsiteClicks = mapDailyInsights(
@@ -701,35 +603,51 @@ const syncAnalyticsRange = async ({ adminId, startDate, endDate }) => {
   );
 
   let previousFollowers = await getLastStoredFollowers(adminId);
+  const priorRow = await MetaAnalyticsDaily.findOne({
+    adminId,
+    date: { $lt: startDate },
+  })
+    .sort({ date: -1 })
+    .lean();
+  let previousIgFollowers = priorRow?.instagram?.followers || 0;
+  const igFollowerAddsByDay = {};
+  for (const date of days) {
+    const day = formatDay(date);
+    const igTotal = igFollowers[day] || 0;
+    igFollowerAddsByDay[day] =
+      igTotal > 0 ? Math.max(0, igTotal - previousIgFollowers) : 0;
+    if (igTotal > 0) previousIgFollowers = igTotal;
+  }
+
   await Promise.all(
     days.map(async (date) => {
       const day = formatDay(date);
+      const igFollowerTotal = igFollowers[day] || 0;
+      const igFollowerAdds = igFollowerAddsByDay[day] || 0;
+      const fbFollowerAdds = pageFollowsDaily[day] || 0;
+      const fbFollowerTotal =
+        day === formatDay(endDate) ? pageFollowersCount : 0;
       const instagram = {
-        followers: igFollowers[day] || 0,
+        followers: igFollowerTotal,
+        followerAdds: igFollowerAdds,
         reach: igReach[day] || 0,
-        impressions: igImpressions[day] || 0,
+        impressions: 0,
         engagement: igEngagement[day] || 0,
         profileVisits: igProfileViews[day] || 0,
         websiteClicks: igWebsiteClicks[day] || 0,
       };
       const facebook = {
-        followers:
-          pageFollowsDaily[day] ||
-          (day === formatDay(endDate) ? pageFollowersCount : 0),
+        followers: fbFollowerTotal,
+        followerAdds: fbFollowerAdds,
         reach: pageReach[day] || 0,
         impressions: pageImpressions[day] || 0,
         engagement: pageEngagement[day] || 0,
         profileVisits: pageProfileVisits[day] || 0,
         websiteClicks: pageWebsiteClicks[day] || 0,
       };
-      const facebookProfile = {
-        ...(profileDailyEngagement[day] || emptyPlatformMetrics()),
-        followers: day === formatDay(endDate) ? profileFollowersCount : 0,
-      };
-      const followers =
-        instagram.followers + facebook.followers + facebookProfile.followers ||
-        previousFollowers ||
-        0;
+      const followerAdds = igFollowerAdds + fbFollowerAdds;
+      const totalFollowers = igFollowerTotal + fbFollowerTotal;
+      const followers = totalFollowers || previousFollowers || 0;
       previousFollowers = followers || previousFollowers;
 
       return MetaAnalyticsDaily.updateOne(
@@ -739,26 +657,14 @@ const syncAnalyticsRange = async ({ adminId, startDate, endDate }) => {
             adminId,
             date,
             followers,
-            reach: instagram.reach + facebook.reach + facebookProfile.reach,
-            impressions:
-              instagram.impressions +
-              facebook.impressions +
-              facebookProfile.impressions,
-            engagement:
-              instagram.engagement +
-              facebook.engagement +
-              facebookProfile.engagement,
-            profileVisits:
-              instagram.profileVisits +
-              facebook.profileVisits +
-              facebookProfile.profileVisits,
-            websiteClicks:
-              instagram.websiteClicks +
-              facebook.websiteClicks +
-              facebookProfile.websiteClicks,
+            followerAdds,
+            reach: instagram.reach + facebook.reach,
+            impressions: instagram.impressions + facebook.impressions,
+            engagement: instagram.engagement + facebook.engagement,
+            profileVisits: instagram.profileVisits + facebook.profileVisits,
+            websiteClicks: instagram.websiteClicks + facebook.websiteClicks,
             instagram,
             facebook,
-            facebookProfile,
           },
         },
         { upsert: true },
@@ -783,22 +689,19 @@ const getStoredDaily = async ({ adminId, startDate, endDate }) => {
 
   const daily = [];
   const dailyFacebook = [];
-  const dailyFacebookProfile = [];
   const dailyInstagram = [];
 
   days.forEach((date) => {
     const day = formatDay(date);
     const row = byDay[day] || {};
     const facebook = { ...emptyPlatformMetrics(), ...(row.facebook || {}) };
-    const facebookProfile = {
-      ...emptyPlatformMetrics(),
-      ...(row.facebookProfile || {}),
-    };
     const instagram = { ...emptyPlatformMetrics(), ...(row.instagram || {}) };
 
     daily.push({
       date: day,
       followers: row.followers || 0,
+      followerAdds:
+        (facebook.followerAdds || 0) + (instagram.followerAdds || 0),
       reach: row.reach || 0,
       impressions: row.impressions || 0,
       engagement: row.engagement || 0,
@@ -806,11 +709,10 @@ const getStoredDaily = async ({ adminId, startDate, endDate }) => {
       websiteClicks: row.websiteClicks || 0,
     });
     dailyFacebook.push({ date: day, ...facebook });
-    dailyFacebookProfile.push({ date: day, ...facebookProfile });
     dailyInstagram.push({ date: day, ...instagram });
   });
 
-  return { daily, dailyFacebook, dailyFacebookProfile, dailyInstagram };
+  return { daily, dailyFacebook, dailyInstagram };
 };
 
 const sumDaily = (daily, key) =>
@@ -824,7 +726,8 @@ const buildPlatformOverview = (
   const latest =
     dailyPlatform[dailyPlatform.length - 1] || emptyPlatformMetrics();
   return {
-    followers: mediaCount.followers || latest.followers || 0,
+    followers: sumDaily(dailyPlatform, "followerAdds"),
+    totalFollowers: mediaCount.followers || latest.followers || 0,
     reach: sumDaily(dailyPlatform, "reach"),
     impressions: sumDaily(dailyPlatform, "impressions"),
     engagement: sumDaily(dailyPlatform, "engagement"),
@@ -842,18 +745,27 @@ const buildPlatformOverview = (
 
 const getInstagramMediaCount = async (account) => {
   if (!account.instagramBusinessAccountId) {
-    return { totalPosts: 0, totalReels: 0, totalLikes: 0, totalComments: 0 };
+    return {
+      totalPosts: 0,
+      totalReels: 0,
+      totalLikes: 0,
+      totalComments: 0,
+      followers: 0,
+    };
   }
 
   try {
-    const media = await graphGet(
-      `/${account.instagramBusinessAccountId}/media`,
-      {
+    const [media, igAccount] = await Promise.all([
+      graphGet(`/${account.instagramBusinessAccountId}/media`, {
         access_token: getPageAccessToken(account),
         fields: "id,media_type,like_count,comments_count",
         limit: 100,
-      },
-    );
+      }),
+      graphGet(`/${account.instagramBusinessAccountId}`, {
+        access_token: getPageAccessToken(account),
+        fields: "followers_count",
+      }),
+    ]);
     const items = media.data || [];
     return {
       totalPosts: items.length,
@@ -866,10 +778,17 @@ const getInstagramMediaCount = async (account) => {
         (sum, item) => sum + Number(item.comments_count || 0),
         0,
       ),
+      followers: Number(igAccount.followers_count || 0),
     };
   } catch (error) {
     console.warn("Meta Instagram media count unavailable:", error.message);
-    return { totalPosts: 0, totalReels: 0, totalLikes: 0, totalComments: 0 };
+    return {
+      totalPosts: 0,
+      totalReels: 0,
+      totalLikes: 0,
+      totalComments: 0,
+      followers: 0,
+    };
   }
 };
 
@@ -919,35 +838,22 @@ const getOverview = async ({ adminId, query }) => {
     );
   }
 
-  const { daily, dailyFacebook, dailyFacebookProfile, dailyInstagram } =
-    await getStoredDaily({
-      adminId,
-      ...range,
-    });
+  const { daily, dailyFacebook, dailyInstagram } = await getStoredDaily({
+    adminId,
+    ...range,
+  });
   const account = await MetaAccount.findOne({ adminId, status: "active" });
-  const [
-    instagramMediaCount,
-    facebookMediaCount,
-    profileMediaCount,
-    pageMessageStats,
-  ] = account
+  const [instagramMediaCount, facebookMediaCount, pageMessageStats] = account
     ? await Promise.all([
         getInstagramMediaCount(account),
         getFacebookMediaCount(account),
-        getProfileMediaCount(account),
         getPageMessageStats(account),
       ])
-    : [{}, {}, {}, {}];
-  const latest = daily[daily.length - 1] || {};
-
-  const facebookPageOverview = buildPlatformOverview(
+    : [{}, {}, {}];
+  const facebookOverview = buildPlatformOverview(
     dailyFacebook,
     facebookMediaCount,
     pageMessageStats,
-  );
-  const facebookProfileOverview = buildPlatformOverview(
-    dailyFacebookProfile,
-    profileMediaCount,
   );
   const instagramOverview = buildPlatformOverview(
     dailyInstagram,
@@ -957,38 +863,34 @@ const getOverview = async ({ adminId, query }) => {
   return {
     syncError,
     overview: {
-      followers: latest.followers || 0,
+      followers:
+        sumDaily(dailyFacebook, "followerAdds") +
+        sumDaily(dailyInstagram, "followerAdds"),
+      totalFollowers:
+        (facebookOverview.totalFollowers || 0) +
+        (instagramOverview.totalFollowers || 0),
       reach: sumDaily(daily, "reach"),
       impressions: sumDaily(daily, "impressions"),
       engagement: sumDaily(daily, "engagement"),
       profileVisits: sumDaily(daily, "profileVisits"),
       websiteClicks: sumDaily(daily, "websiteClicks"),
       totalPosts:
-        (instagramMediaCount.totalPosts || 0) +
-        (facebookMediaCount.totalPosts || 0) +
-        (profileMediaCount.totalPosts || 0),
+        (instagramMediaCount.totalPosts || 0) + (facebookMediaCount.totalPosts || 0),
       totalReels: instagramMediaCount.totalReels || 0,
       totalLikes:
-        (instagramMediaCount.totalLikes || 0) +
-        (facebookMediaCount.totalLikes || 0) +
-        (profileMediaCount.totalLikes || 0),
+        (instagramMediaCount.totalLikes || 0) + (facebookMediaCount.totalLikes || 0),
       totalComments:
         (instagramMediaCount.totalComments || 0) +
-        (facebookMediaCount.totalComments || 0) +
-        (profileMediaCount.totalComments || 0),
+        (facebookMediaCount.totalComments || 0),
       totalMessages: pageMessageStats.totalMessages || 0,
       unreadMessages: pageMessageStats.unreadMessages || 0,
     },
     platforms: {
-      facebookPage: facebookPageOverview,
-      facebookProfile: facebookProfileOverview,
-      facebook: facebookPageOverview,
+      facebook: facebookOverview,
       instagram: instagramOverview,
     },
     daily,
     dailyByPlatform: {
-      facebookPage: dailyFacebook,
-      facebookProfile: dailyFacebookProfile,
       facebook: dailyFacebook,
       instagram: dailyInstagram,
     },
@@ -1075,21 +977,18 @@ const getPosts = async ({ adminId, limit = 50 }) => {
         },
       );
 
-      console.log("IG MEDIA RESPONSE");
-      console.dir(instagramMedia, { depth: null });
-
       const instagramPosts = (instagramMedia.data || []).map((item) =>
         normalizePost({
-  platform: "Instagram",
-  id: item.id,
-  thumbnail: item.thumbnail_url || item.media_url,
-  permalink: item.permalink,
-  caption: item.caption,
-  postedDate: item.timestamp,
-  likes: item.like_count,
-  comments: item.comments_count,
-  insights: null,
-})
+          platform: "Instagram",
+          id: item.id,
+          thumbnail: item.thumbnail_url || item.media_url,
+          permalink: item.permalink,
+          caption: item.caption,
+          postedDate: item.timestamp,
+          likes: item.like_count,
+          comments: item.comments_count,
+          insights: null,
+        }),
       );
       posts.push(...instagramPosts);
     }
@@ -1098,37 +997,17 @@ const getPosts = async ({ adminId, limit = 50 }) => {
   }
 
   try {
-    const profilePostsRaw = await fetchProfilePostsRaw(account, limit);
-    posts.push(
-      ...profilePostsRaw.map((item) =>
-        normalizePost({
-          platform: "Facebook Profile",
-          id: item.id,
-          thumbnail: item.full_picture || item.picture,
-          caption: item.message,
-          postedDate: item.created_time,
-          likes: item.likes?.summary?.total_count,
-          comments: item.comments?.summary?.total_count,
-          insights: null,
-        }),
-      ),
-    );
-  } catch (error) {
-    console.warn("Facebook profile posts unavailable:", error.message);
-  }
-
-  try {
     const pagePosts = await graphGet(`/${account.pageId}/posts`, {
       access_token: getPageAccessToken(account),
       fields:
-        "id,message,created_time,full_picture,picture,likes.summary(true),comments.summary(true),insights.metric(post_impressions,post_impressions_unique,post_engaged_users)",
+        "id,message,created_time,full_picture,picture,likes.summary(true),comments.summary(true)",
       limit,
     });
 
     posts.push(
       ...(pagePosts.data || []).map((item) =>
         normalizePost({
-          platform: "Facebook Page",
+          platform: "Facebook",
           id: item.id,
           thumbnail: item.full_picture || item.picture,
           caption: item.message,
@@ -1136,7 +1015,6 @@ const getPosts = async ({ adminId, limit = 50 }) => {
           likes: item.likes?.summary?.total_count,
           comments: item.comments?.summary?.total_count,
           insights: null,
-          insights: item.insights,
         }),
       ),
     );
@@ -1145,6 +1023,115 @@ const getPosts = async ({ adminId, limit = 50 }) => {
   }
 
   return posts.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate));
+};
+
+const getPostLikes = async ({ postId, accessToken, platform }) => {
+  try {
+    if (platform === "Facebook") {
+      const response = await graphGet(`/${postId}/likes`, {
+        access_token: accessToken,
+        fields: "id,name",
+        limit: 100,
+      });
+      return (response.data || []).map((user) => ({
+        id: user.id,
+        name: user.name,
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.warn(`Post likes unavailable for ${postId}:`, error.message);
+    return [];
+  }
+};
+
+const getPostComments = async ({ postId, accessToken, platform }) => {
+  try {
+    if (platform === "Facebook") {
+      const response = await graphGet(`/${postId}/comments`, {
+        access_token: accessToken,
+        fields: "id,message,from{id,name},created_time",
+        limit: 100,
+      });
+      return (response.data || []).map((comment) => ({
+        id: comment.id,
+        message: comment.message || "",
+        fromName: comment.from?.name || "Unknown",
+        fromId: comment.from?.id || "",
+        createdTime: comment.created_time,
+      }));
+    }
+
+    if (platform === "Instagram") {
+      const response = await graphGet(`/${postId}/comments`, {
+        access_token: accessToken,
+        fields: "id,text,username,timestamp",
+        limit: 100,
+      });
+      return (response.data || []).map((comment) => ({
+        id: comment.id,
+        message: comment.text || "",
+        fromName: comment.username || "Unknown",
+        fromId: "",
+        createdTime: comment.timestamp,
+      }));
+    }
+
+    return [];
+  } catch (error) {
+    console.warn(`Post comments unavailable for ${postId}:`, error.message);
+    return [];
+  }
+};
+
+const getPostCounts = async ({ postId, accessToken, platform }) => {
+  try {
+    if (platform === "Instagram") {
+      const media = await graphGet(`/${postId}`, {
+        access_token: accessToken,
+        fields: "like_count,comments_count",
+      });
+      return {
+        likeCount: Number(media.like_count || 0),
+        commentCount: Number(media.comments_count || 0),
+      };
+    }
+
+    if (platform === "Facebook") {
+      const post = await graphGet(`/${postId}`, {
+        access_token: accessToken,
+        fields: "likes.summary(true),comments.summary(true)",
+      });
+      return {
+        likeCount: Number(post.likes?.summary?.total_count || 0),
+        commentCount: Number(post.comments?.summary?.total_count || 0),
+      };
+    }
+  } catch (error) {
+    console.warn(`Post counts unavailable for ${postId}:`, error.message);
+  }
+
+  return { likeCount: 0, commentCount: 0 };
+};
+
+const getPostDetails = async ({ adminId, postId, platform }) => {
+  const account = await getActiveAccount(adminId);
+  const accessToken = getPageAccessToken(account);
+
+  const [likes, comments, counts] = await Promise.all([
+    getPostLikes({ postId, accessToken, platform }),
+    getPostComments({ postId, accessToken, platform }),
+    getPostCounts({ postId, accessToken, platform }),
+  ]);
+
+  return {
+    postId,
+    platform,
+    likeCount: counts.likeCount,
+    commentCount: counts.commentCount,
+    likes,
+    comments,
+  };
 };
 
 const disconnect = async (adminId) => {
@@ -1176,6 +1163,7 @@ module.exports = {
   getOverview,
   getPages,
   getPosts,
+  getPostDetails,
   handleOAuthCallback,
   parseDateRange,
   sanitizeAccount,

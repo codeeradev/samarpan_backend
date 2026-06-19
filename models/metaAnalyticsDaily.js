@@ -21,14 +21,7 @@ const metaAnalyticsDailySchema = new mongoose.Schema(
     websiteClicks: { type: Number, default: 0 },
     facebook: {
       followers: { type: Number, default: 0 },
-      reach: { type: Number, default: 0 },
-      impressions: { type: Number, default: 0 },
-      engagement: { type: Number, default: 0 },
-      profileVisits: { type: Number, default: 0 },
-      websiteClicks: { type: Number, default: 0 },
-    },
-    facebookProfile: {
-      followers: { type: Number, default: 0 },
+      followerAdds: { type: Number, default: 0 },
       reach: { type: Number, default: 0 },
       impressions: { type: Number, default: 0 },
       engagement: { type: Number, default: 0 },
@@ -37,6 +30,7 @@ const metaAnalyticsDailySchema = new mongoose.Schema(
     },
     instagram: {
       followers: { type: Number, default: 0 },
+      followerAdds: { type: Number, default: 0 },
       reach: { type: Number, default: 0 },
       impressions: { type: Number, default: 0 },
       engagement: { type: Number, default: 0 },

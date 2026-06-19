@@ -19,6 +19,7 @@ router.get("/followers", metaController.followers);
 router.get("/reach", metaController.reach);
 router.get("/impressions", metaController.impressions);
 router.get("/posts", metaController.posts);
+router.get("/posts/:postId/:platform", metaController.postDetails);
 router.get("/top-posts", metaController.topPosts);
 
 module.exports = router;

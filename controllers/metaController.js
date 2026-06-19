@@ -115,6 +115,20 @@ exports.posts = async (req, res) => {
   }
 };
 
+exports.postDetails = async (req, res) => {
+  try {
+    const { postId, platform } = req.params;
+    const result = await metaService.getPostDetails({
+      adminId: req.user._id,
+      postId,
+      platform,
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
 exports.topPosts = async (req, res) => {
   try {
     const posts = await metaService.getPosts({
