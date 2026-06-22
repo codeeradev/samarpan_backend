@@ -23,6 +23,9 @@ const { sendMail } = require("../config/nodemailer");
 const { fetchGoogleReviews } = require("../utils/googleReviews");
 const Theme = require("../models/theme");
 const Procedure = require("../models/cosmeticProcedure");
+const axios = require("axios");
+const SeoReport = require("../models/seoReport");
+
 const ROLE_MAP = {
   1: "SUPER_ADMIN",
   2: "DOCTOR",
@@ -3265,5 +3268,63 @@ exports.getJobRequests = async (req, res) => {
   } catch (error) {
     console.log(error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getSeoReport = async (req, res) => {
+  try {
+    const TARGET_URL = "https://samarpanhospitalhisar.com";
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Step 1: Check if today's report already exists
+    const existingReport = await SeoReport.findOne({
+      url: TARGET_URL,
+      reportDate: today,
+    });
+
+    if (existingReport) {
+      return res.status(200).json({
+        success: true,
+        source: "database",
+        report: existingReport,
+      });
+    }
+
+    // Step 2: Hit RankMath only once per day
+    const response = await axios.get(
+      "https://rankmath.com/wp-admin/admin-ajax.php",
+      {
+        params: {
+          action: "analyze",
+          url: TARGET_URL,
+          "g-recaptcha-response": "",
+          from_embed: "false",
+        },
+        timeout: 20000,
+      },
+    );
+
+    const reportHtml = response.data;
+
+    // Step 3: Save report
+    const report = await SeoReport.create({
+      url: TARGET_URL,
+      reportHtml,
+      reportDate: today,
+    });
+
+    return res.status(200).json({
+      success: true,
+      source: "rankmath",
+      report,
+    });
+  } catch (error) {
+    console.error("SEO Report Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

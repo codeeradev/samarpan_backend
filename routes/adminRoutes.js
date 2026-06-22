@@ -95,6 +95,7 @@ const {
   updateProcedure,
   deleteProcedure,
   getProcedure,
+  getSeoReport,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin);
@@ -407,5 +408,6 @@ router.post(
 );
 router.post("/delete-procedure/:id", verifyToken, checkAdmin, deleteProcedure);
 router.get("/get-procedure", verifyToken, checkAdmin, getProcedure);
+router.get("/get-seo-report", getSeoReport);
 
 module.exports = router;
