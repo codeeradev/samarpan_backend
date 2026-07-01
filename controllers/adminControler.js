@@ -20,11 +20,14 @@ const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
 const permisson = require("../constants/permisson");
 const { sendMail } = require("../config/nodemailer");
-const { fetchGoogleReviews } = require("../utils/googleReviews");
 const Theme = require("../models/theme");
 const Procedure = require("../models/cosmeticProcedure");
 const axios = require("axios");
 const SeoReport = require("../models/seoReport");
+const {
+  getRelativeTime,
+  fetchAllGoogleReviews,
+} = require("../utils/googleReviews");
 
 const ROLE_MAP = {
   1: "SUPER_ADMIN",
@@ -1145,7 +1148,6 @@ exports.getDashboard = async (req, res) => {
       totalServices,
       totalBlogs,
       totalGallery,
-      totalReviews,
       totalShorts,
       totalPatients,
       totalAppointments,
@@ -1163,9 +1165,6 @@ exports.getDashboard = async (req, res) => {
       Service.countDocuments({}),
       Blog.countDocuments({}),
       Gallery.countDocuments({}),
-      fetchGoogleReviews()
-        .then((payload) => payload.reviews.length)
-        .catch(() => 0),
       Short.countDocuments({}),
       Appointment.countDocuments(patientScopeFilter),
       Appointment.countDocuments(appointmentScopeFilter),
@@ -1275,7 +1274,6 @@ exports.getDashboard = async (req, res) => {
         totalServices,
         totalBlogs,
         totalGallery,
-        totalReviews,
         totalShorts,
       },
       appointmentsByStatus: {
@@ -3325,6 +3323,57 @@ exports.getSeoReport = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+exports.syncGoogleReviews = async (req, res) => {
+  try {
+    const allReviews = await fetchAllGoogleReviews();
+
+    console.log(`Fetched ${allReviews.length} reviews from Google.`);
+    console.log("Sample review:", allReviews[0]);
+
+    const ratingMap = {
+      ONE: 1,
+      TWO: 2,
+      THREE: 3,
+      FOUR: 4,
+      FIVE: 5,
+    };
+
+    const operations = allReviews.map((review) => ({
+      updateOne: {
+        filter: { id: review.reviewId }, // ya review.name agar wahi unique hai
+        update: {
+          $set: {
+            id: review.reviewId,
+            authorName: review.reviewer?.displayName || "",
+            authorUrl: "",
+            profilePhotoUrl: review.reviewer?.profilePhotoUrl || "",
+            rating: ratingMap[review.starRating] || 0,
+            relativeTimeDescription: getRelativeTime(review.createTime),
+            text: review.comment || "",
+            time: Math.floor(new Date(review.createTime).getTime() / 1000),
+            language: "en",
+          },
+        },
+        upsert: true,
+      },
+    }));
+
+    const result = await Review.bulkWrite(operations);
+
+    return res.status(200).json({
+      message: "Google reviews synced successfully",
+      totalFetched: allReviews.length,
+      inserted: result.upsertedCount,
+      updated: result.modifiedCount,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      message: err.message,
     });
   }
 };
