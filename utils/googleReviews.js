@@ -1,13 +1,8 @@
 const Setting = require("../models/setting");
 const axios = require("axios");
 
-const GOOGLE_PLACE_ID = "ChIJHcqVl2wzEjkRuwleGvppVDI";
-
-const GOOGLE_PLACES_API_KEY ="AIzaSyDxUrsUbdiRRIGFjreNUB98IsFXdC3tE48";
-
 const ACCOUNT_ID = "101956102540015364943";
 const LOCATION_ID = "7294201313474128016";
-
 
 async function getAccessToken() {
   const { data } = await axios.post(
@@ -22,12 +17,11 @@ async function getAccessToken() {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-    }
+    },
   );
 
   return data.access_token;
 }
-
 
 async function fetchAllGoogleReviews() {
   const accessToken = await getAccessToken();
@@ -36,7 +30,7 @@ async function fetchAllGoogleReviews() {
 
   do {
     const url = new URL(
-      `https://mybusiness.googleapis.com/v4/accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}/reviews`
+      `https://mybusiness.googleapis.com/v4/accounts/${ACCOUNT_ID}/locations/${LOCATION_ID}/reviews`,
     );
 
     url.searchParams.set("pageSize", "50");
