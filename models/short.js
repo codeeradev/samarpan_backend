@@ -25,8 +25,19 @@ const shortSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    doctorTestimonial: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
+
+// Composite index for query performance
+shortSchema.index({
+  isActive: 1,
+  doctorTestimonial: 1,
+  sortOrder: 1,
+});
 
 module.exports = mongoose.model("Short", shortSchema);

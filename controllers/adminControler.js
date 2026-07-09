@@ -1585,7 +1585,9 @@ exports.deleteReview = async (req, res) => {
 
 exports.addShort = async (req, res) => {
   try {
-    const { title, shortUrl, thumbnail, sortOrder, isActive } = req.body;
+    const { title, shortUrl, thumbnail, sortOrder, isActive, doctorTestimonial, type } = req.body;
+    const shortType = normalizeText(type).toLowerCase();
+    const parsedDoctorTestimonial = parseBoolean(doctorTestimonial);
 
     if (!title || !shortUrl) {
       return res.status(400).json({
@@ -1599,6 +1601,10 @@ exports.addShort = async (req, res) => {
       thumbnail,
       sortOrder: sortOrder !== undefined ? sortOrder : 0,
       isActive: isActive !== undefined ? isActive : true,
+      doctorTestimonial:
+        shortType !== ""
+          ? shortType === "doctor"
+          : parsedDoctorTestimonial ?? false,
     });
 
     return res.status(201).json({
@@ -1615,7 +1621,21 @@ exports.addShort = async (req, res) => {
 
 exports.getAllShorts = async (req, res) => {
   try {
-    const shorts = await Short.find().sort({ sortOrder: 1, createdAt: -1 });
+    const { type } = req.query;
+    const shortType = normalizeText(type).toLowerCase();
+
+    // Build filter based on type
+    const filter = {};
+
+    if (shortType === "doctor") {
+      filter.doctorTestimonial = true;
+    } else if (shortType !== "") {
+      // If type is specified but not "doctor", filter for patient testimonials
+      filter.doctorTestimonial = { $ne: true };
+    }
+    // If no type specified, return all shorts (backward compatible)
+
+    const shorts = await Short.find(filter).sort({ sortOrder: 1, createdAt: -1 });
 
     return res
       .status(200)
@@ -1629,7 +1649,8 @@ exports.getAllShorts = async (req, res) => {
 exports.updateShort = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, shortUrl, thumbnail, sortOrder, isActive } = req.body;
+    const { title, shortUrl, thumbnail, sortOrder, isActive, doctorTestimonial, type } = req.body;
+    const shortType = normalizeText(type).toLowerCase();
 
     const updateData = {};
 
@@ -1638,6 +1659,11 @@ exports.updateShort = async (req, res) => {
     if (thumbnail) updateData.thumbnail = thumbnail;
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (shortType !== "") {
+      updateData.doctorTestimonial = shortType === "doctor";
+    } else if (doctorTestimonial !== undefined) {
+      updateData.doctorTestimonial = parseBoolean(doctorTestimonial) ?? doctorTestimonial;
+    }
 
     const short = await Short.findByIdAndUpdate(id, updateData, {
       new: true,

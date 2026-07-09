@@ -401,7 +401,20 @@ exports.getReviews = async (req, res) => {
 
 exports.getShorts = async (req, res) => {
   try {
-    const shorts = await Short.find({ isActive: true })
+    const { type } = req.query;
+    const shortType = normalizeText(type).toLowerCase();
+
+    // Build filter based on type
+    const filter = { isActive: true };
+
+    if (shortType === "doctor") {
+      filter.doctorTestimonial = true;
+    } else {
+      // Default: patient testimonials (NOT doctor testimonials)
+      filter.doctorTestimonial = { $ne: true };
+    }
+
+    const shorts = await Short.find(filter)
       .select("-__v -isActive")
       .sort({
         sortOrder: 1,
