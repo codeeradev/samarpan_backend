@@ -1,7 +1,8 @@
+const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const MetaAccount = require("../models/metaAccount");
 const MetaAnalyticsDaily = require("../models/metaAnalyticsDaily");
-
+const MetaLead = require("../models/metaLead");
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v20.0";
 const GRAPH_BASE_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const META_PERMISSIONS = [
@@ -13,6 +14,7 @@ const META_PERMISSIONS = [
   "instagram_basic",
   "instagram_manage_insights",
   "business_management",
+  "pages_manage_ads",
 ];
 const TOKEN_REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -1285,6 +1287,210 @@ const disconnect = async (adminId) => {
   return sanitizeAccount(account);
 };
 
+// ── Lead Ads ─────────────────────────────────────────────────────────────
+
+const getLeadForms = async (adminId) => {
+  const account = await getActiveAccount(adminId);
+  const response = await graphGet(`/${account.pageId}/leadgen_forms`, {
+    access_token: getPageAccessToken(account),
+    fields: "id,name,status,leads_count",
+    limit: 100,
+  });
+
+  return (response.data || []).map((form) => ({
+    formId: form.id,
+    formName: form.name,
+    status: form.status,
+    leadsCount: Number(form.leads_count || 0),
+  }));
+};
+
+const extractFieldValue = (fieldData = [], name) =>
+  fieldData.find((field) => field.name === name)?.values?.[0] || "";
+
+const normalizeLead = ({ adminId, account, formId, formName, raw }) => {
+  const fieldData = raw.field_data || [];
+  return {
+    adminId,
+    leadId: raw.id,
+    formId,
+    formName,
+    pageId: account.pageId,
+    platform: "Facebook",
+    createdTime: raw.created_time ? new Date(raw.created_time) : new Date(),
+    fullName:
+      extractFieldValue(fieldData, "full_name") ||
+      extractFieldValue(fieldData, "name"),
+    email: extractFieldValue(fieldData, "email"),
+    phoneNumber:
+      extractFieldValue(fieldData, "phone_number") ||
+      extractFieldValue(fieldData, "phone"),
+    fieldData: fieldData.reduce((acc, field) => {
+      acc[field.name] = field.values?.[0] || "";
+      return acc;
+    }, {}),
+  };
+};
+
+const fetchAllLeadsForForm = async ({ formId, accessToken }) => {
+  const leads = [];
+  let nextUrl = null;
+  let isFirst = true;
+
+  while (isFirst || nextUrl) {
+    isFirst = false;
+    const response = nextUrl
+      ? await (async () => {
+          const res = await fetch(nextUrl);
+          if (!res.ok) await readGraphError(res);
+          return res.json();
+        })()
+      : await graphGet(`/${formId}/leads`, {
+          access_token: accessToken,
+          fields: "id,created_time,field_data",
+          limit: 100,
+        });
+
+    leads.push(...(response.data || []));
+    nextUrl = response.paging?.next || null;
+  }
+
+  return leads;
+};
+
+const syncLeads = async (adminId) => {
+  const account = await getActiveAccount(adminId);
+  const accessToken = getPageAccessToken(account);
+  const forms = await getLeadForms(adminId);
+
+  let syncedCount = 0;
+
+  for (const form of forms) {
+    try {
+      const rawLeads = await fetchAllLeadsForForm({
+        formId: form.formId,
+        accessToken,
+      });
+
+      const operations = rawLeads.map((raw) => {
+        const lead = normalizeLead({
+          adminId,
+          account,
+          formId: form.formId,
+          formName: form.formName,
+          raw,
+        });
+        return {
+          updateOne: {
+            filter: { adminId, leadId: lead.leadId },
+            update: { $setOnInsert: lead },
+            upsert: true,
+          },
+        };
+      });
+
+      if (operations.length) {
+        const result = await MetaLead.bulkWrite(operations, { ordered: false });
+        syncedCount += result.upsertedCount || 0;
+      }
+    } catch (error) {
+      console.warn(
+        `Meta leads sync failed for form ${form.formId}:`,
+        error.message,
+      );
+    }
+  }
+
+  return { syncedCount, formsChecked: forms.length };
+};
+
+const getLeads = async ({ adminId, query = {} }) => {
+  const {
+    page = 1,
+    limit = 20,
+    search = "",
+    formId = "",
+    status = "",
+    startDate = "",
+    endDate = "",
+  } = query;
+
+  const filter = { adminId };
+  if (formId) filter.formId = formId;
+  if (status) filter.status = status;
+
+  if (startDate || endDate) {
+    filter.createdTime = {};
+    if (startDate) filter.createdTime.$gte = new Date(startDate);
+    if (endDate) filter.createdTime.$lte = new Date(`${endDate}T23:59:59.999Z`);
+  }
+
+  if (search) {
+    const regex = new RegExp(search.trim(), "i");
+    filter.$or = [{ fullName: regex }, { email: regex }, { phoneNumber: regex }];
+  }
+
+  const pageNum = Math.max(1, Number(page));
+  const pageSize = Math.min(100, Math.max(1, Number(limit)));
+
+  const [leads, total, statusCounts] = await Promise.all([
+    MetaLead.find(filter)
+      .sort({ createdTime: -1 })
+      .skip((pageNum - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    MetaLead.countDocuments(filter),
+    MetaLead.aggregate([
+      { $match: { adminId: new mongoose.Types.ObjectId(adminId) } },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  return {
+    leads,
+    pagination: {
+      page: pageNum,
+      limit: pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize) || 1,
+    },
+    statusCounts: statusCounts.reduce((acc, row) => {
+      acc[row._id] = row.count;
+      return acc;
+    }, {}),
+  };
+};
+
+const getLeadById = async ({ adminId, leadId }) => {
+  const lead = await MetaLead.findOne({ adminId, _id: leadId }).lean();
+  if (!lead) {
+    const error = new Error("Lead not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  return lead;
+};
+
+const updateLeadStatus = async ({ adminId, leadId, status, notes }) => {
+  const update = {};
+  if (status) update.status = status;
+  if (notes !== undefined) update.notes = notes;
+
+  const lead = await MetaLead.findOneAndUpdate(
+    { adminId, _id: leadId },
+    { $set: update },
+    { new: true },
+  );
+
+  if (!lead) {
+    const error = new Error("Lead not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return lead;
+};
+
 module.exports = {
   createOAuthUrl,
   disconnect,
@@ -1298,4 +1504,9 @@ module.exports = {
   parseDateRange,
   sanitizeAccount,
   selectPage,
+  getLeadForms,
+  syncLeads,
+  getLeads,
+  getLeadById,
+  updateLeadStatus,
 };

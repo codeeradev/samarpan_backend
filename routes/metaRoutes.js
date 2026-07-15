@@ -21,5 +21,10 @@ router.get("/impressions", metaController.impressions);
 router.get("/posts", metaController.posts);
 router.get("/posts/:postId/:platform", metaController.postDetails);
 router.get("/top-posts", metaController.topPosts);
+router.get("/leads/forms", metaController.leadForms);
+router.post("/leads/sync", metaController.syncLeads);
+router.get("/leads", metaController.leads);
+router.get("/leads/:leadId", metaController.leadDetails);
+router.patch("/leads/:leadId", metaController.updateLeadStatus);
 
 module.exports = router;
