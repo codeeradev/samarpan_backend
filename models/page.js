@@ -36,6 +36,10 @@ const pageSchema = new mongoose.Schema(
         default: "",
         trim: true,
       },
+      keywords: {
+        type: [String],
+        default: [],
+      },
       canonicalUrl: {
         type: String,
         default: "",

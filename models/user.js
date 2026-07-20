@@ -27,6 +27,11 @@ const userSchema = new mongoose.Schema(
     medicalHistory: String,
     specialization: String,
     description: String,
+    seo: {
+      metaTitle: String,
+      metaDescription: String,
+      keywords: [String],
+    },
     experience: String,
     qualification: String,
     expertise: [

@@ -440,7 +440,7 @@ exports.getDoctors = async (req, res) => {
       isActive: { $ne: false },
       specialization: { $exists: true, $ne: "" },
     }).select(
-      "name image specialization description experience qualification expertise isActive createdAt updatedAt",
+      "name image specialization description seo experience qualification expertise isActive createdAt updatedAt",
     );
     return res
       .status(200)

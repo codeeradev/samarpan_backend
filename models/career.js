@@ -44,6 +44,22 @@ const careerSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    seo: {
+      metaTitle: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      metaDescription: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      keywords: {
+        type: [String],
+        default: [],
+      },
+    },
     requirements: {
       type: [String],
       default: [],

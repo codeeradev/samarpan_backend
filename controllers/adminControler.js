@@ -191,6 +191,24 @@ const normalizeStringArray = (value) => {
   return [];
 };
 
+const normalizeSeo = (value, fallbackTitle = "", fallbackDescription = "") => {
+  const seoInput = parseJson(value) || value || {};
+  const keywords = Array.isArray(seoInput?.keywords)
+    ? seoInput.keywords
+    : typeof seoInput?.keywords === "string"
+      ? seoInput.keywords.split(",")
+      : [];
+
+  return {
+    metaTitle:
+      normalizeText(seoInput?.metaTitle) || normalizeText(fallbackTitle),
+    metaDescription:
+      normalizeText(seoInput?.metaDescription) ||
+      normalizeText(fallbackDescription).slice(0, 160),
+    keywords: keywords.map((keyword) => normalizeText(keyword)).filter(Boolean),
+  };
+};
+
 const normalizeSortOrder = (value) => {
   const parsedValue = Number.parseInt(String(value ?? "").trim(), 10);
   return Number.isNaN(parsedValue) ? 0 : parsedValue;
@@ -726,6 +744,7 @@ exports.addDoctor = async (req, res) => {
       permissions,
       status,
       isActive,
+      seo,
     } = req.body;
 
     const image = req.files?.image?.[0]?.filename
@@ -763,6 +782,7 @@ exports.addDoctor = async (req, res) => {
       status: status !== undefined ? status : true,
       specialization,
       description,
+      seo: normalizeSeo(seo, name, description),
       image,
       experience,
       qualification,
@@ -815,6 +835,7 @@ exports.updateDoctor = async (req, res) => {
       permissions,
       status,
       isActive,
+      seo,
     } = req.body;
 
     const updateData = {};
@@ -835,6 +856,7 @@ exports.updateDoctor = async (req, res) => {
     if (phone) updateData.phone = phone;
     if (specialization) updateData.specialization = specialization;
     if (description) updateData.description = description;
+    if (seo !== undefined) updateData.seo = normalizeSeo(seo, name, description);
     if (experience) updateData.experience = experience;
     if (qualification) updateData.qualification = qualification;
     if (req.files?.image)
@@ -2165,6 +2187,7 @@ exports.addPage = async (req, res) => {
     const metaDescription = normalizeText(
       req.body.metaDescription || seoInput.metaDescription,
     );
+    const keywords = normalizeStringArray(req.body.keywords || seoInput.keywords);
     const canonicalUrl = normalizeText(
       req.body.canonicalUrl || seoInput.canonicalUrl,
     );
@@ -2199,6 +2222,7 @@ exports.addPage = async (req, res) => {
       seo: {
         metaTitle,
         metaDescription,
+        keywords,
         canonicalUrl,
         schemaMarkup,
       },
@@ -2262,6 +2286,9 @@ exports.updatePage = async (req, res) => {
         seoInput.metaDescription ||
         existingPage.seo?.metaDescription,
     );
+    const keywords = normalizeStringArray(
+      req.body.keywords || seoInput.keywords || existingPage.seo?.keywords,
+    );
     const canonicalUrl = normalizeText(
       req.body.canonicalUrl ||
         seoInput.canonicalUrl ||
@@ -2291,6 +2318,7 @@ exports.updatePage = async (req, res) => {
     existingPage.seo = {
       metaTitle,
       metaDescription,
+      keywords,
       canonicalUrl,
       schemaMarkup,
     };
@@ -2333,6 +2361,11 @@ exports.addCareer = async (req, res) => {
     const status =
       normalizeCareerStatus(req.body.status) ||
       (parseBoolean(req.body.isActive) === false ? "draft" : "open");
+    const seo = normalizeSeo(
+      req.body.seo,
+      title,
+      req.body.summary || req.body.description,
+    );
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -2368,6 +2401,7 @@ exports.addCareer = async (req, res) => {
       experience: normalizeText(req.body.experience),
       summary: normalizeText(req.body.summary),
       description: normalizeText(req.body.description),
+      seo,
       requirements: normalizeStringArray(req.body.requirements),
       responsibilities: normalizeStringArray(req.body.responsibilities),
       applyEmail: normalizeText(req.body.applyEmail),
@@ -2472,6 +2506,13 @@ exports.updateCareer = async (req, res) => {
     existingCareer.description = hasField("description")
       ? normalizeText(req.body.description)
       : existingCareer.description;
+    existingCareer.seo = hasField("seo")
+      ? normalizeSeo(
+          req.body.seo,
+          title,
+          existingCareer.summary || existingCareer.description,
+        )
+      : existingCareer.seo;
     existingCareer.requirements = hasField("requirements")
       ? normalizeStringArray(req.body.requirements)
       : existingCareer.requirements;
