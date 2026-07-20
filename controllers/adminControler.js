@@ -2165,6 +2165,15 @@ exports.addPage = async (req, res) => {
     const metaDescription = normalizeText(
       req.body.metaDescription || seoInput.metaDescription,
     );
+    const canonicalUrl = normalizeText(
+      req.body.canonicalUrl || seoInput.canonicalUrl,
+    );
+    const schemaMarkup =
+      typeof req.body.schemaMarkup === "string"
+        ? req.body.schemaMarkup
+        : typeof seoInput.schemaMarkup === "string"
+          ? seoInput.schemaMarkup
+          : "";
 
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
@@ -2190,6 +2199,8 @@ exports.addPage = async (req, res) => {
       seo: {
         metaTitle,
         metaDescription,
+        canonicalUrl,
+        schemaMarkup,
       },
     });
 
@@ -2251,6 +2262,17 @@ exports.updatePage = async (req, res) => {
         seoInput.metaDescription ||
         existingPage.seo?.metaDescription,
     );
+    const canonicalUrl = normalizeText(
+      req.body.canonicalUrl ||
+        seoInput.canonicalUrl ||
+        existingPage.seo?.canonicalUrl,
+    );
+    const schemaMarkup =
+      typeof req.body.schemaMarkup === "string"
+        ? req.body.schemaMarkup
+        : typeof seoInput.schemaMarkup === "string"
+          ? seoInput.schemaMarkup
+          : existingPage.seo?.schemaMarkup || "";
 
     if (slug && slug !== existingPage.slug) {
       const duplicateSlug = await Page.findOne({ slug });
@@ -2269,6 +2291,8 @@ exports.updatePage = async (req, res) => {
     existingPage.seo = {
       metaTitle,
       metaDescription,
+      canonicalUrl,
+      schemaMarkup,
     };
 
     const page = await existingPage.save();
@@ -2515,6 +2539,8 @@ exports.updateSettings = async (req, res) => {
       password,
       google_reviews,
       social_links,
+      razorpay_key_id,
+      razorpay_key_secret,
     } = req.body;
 
     const updateData = {};
@@ -2530,6 +2556,10 @@ exports.updateSettings = async (req, res) => {
     if (password) updateData.password = password;
     if (google_reviews) updateData.google_reviews = parseJson(google_reviews);
     if (social_links) updateData.social_links = parseJson(social_links);
+    if (razorpay_key_id !== undefined)
+      updateData.razorpay_key_id = normalizeText(razorpay_key_id);
+    if (razorpay_key_secret !== undefined)
+      updateData.razorpay_key_secret = normalizeText(razorpay_key_secret);
 
     if (req.files?.image?.[0]?.filename) {
       updateData.website_logo = `/assets/uploads/${req.files.image[0].filename}`;

@@ -46,6 +46,21 @@ const appointmentSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    slotId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppointmentSlot",
+      default: null,
+    },
+    slotType: {
+      type: String,
+      enum: ["daily", "weekly", null],
+      default: null,
+    },
+    slotLabel: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     reason: {
       type: String,
       trim: true,
@@ -126,6 +141,19 @@ const appointmentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       default: null,
+    },
+    payment: {
+      provider: { type: String, trim: true, default: "" },
+      status: {
+        type: String,
+        enum: ["not_required", "pending", "paid", "failed", ""],
+        default: "not_required",
+      },
+      amount: { type: Number, default: 0 },
+      currency: { type: String, trim: true, default: "INR" },
+      razorpayOrderId: { type: String, trim: true, default: "" },
+      razorpayPaymentId: { type: String, trim: true, default: "" },
+      verifiedAt: { type: Date, default: null },
     },
   },
   { timestamps: true },

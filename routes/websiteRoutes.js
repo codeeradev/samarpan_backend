@@ -2,6 +2,10 @@ const express = require("express");
 const {
   trackAnalytics,
 } = require("../controllers/analyticsController");
+const {
+  getAvailableAppointmentSlots,
+  verifyAppointmentPayment,
+} = require("../controllers/appointmentSettingsController");
 
 const {
   submitAppointment,
@@ -28,6 +32,8 @@ const upload = require("../middleware/multer");
 const router = express.Router();
 
 router.post("/submit-appointment", submitAppointment);
+router.get("/appointment-slots", getAvailableAppointmentSlots);
+router.post("/verify-appointment-payment", verifyAppointmentPayment);
 router.post("/analytics/track", trackAnalytics);
 router.get("/get-services", getServices);
 router.get("/get-services-features", getServicesFeatures);

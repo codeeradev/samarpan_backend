@@ -48,6 +48,8 @@ const settingSchema = new mongoose.Schema(
       instagram: { type: String, trim: true },
       call: { type: String, trim: true },
     },
+    razorpay_key_id: { type: String, trim: true, default: "" },
+    razorpay_key_secret: { type: String, trim: true, default: "" },
     website_logo:String,
   },
   { timestamps: true },

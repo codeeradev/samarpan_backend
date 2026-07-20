@@ -18,6 +18,13 @@ const Procedure = require("../models/cosmeticProcedure");
 const Theme = require("../models/theme");
 const CareerEnquiry = require("../models/jobApplication");
 const reviewModel = require("../models/review");
+const {
+  buildLocalDate,
+  createRazorpayOrder,
+  ensureSlotCanBook,
+  isRazorpayConfigured,
+  normalizeDateKey,
+} = require("../services/appointmentBookingService");
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
 
@@ -120,6 +127,7 @@ exports.submitAppointment = async (req, res) => {
     const phoneNumber = normalizeText(req.body.phone_number || req.body.phone);
     const serviceInput = req.body.service_id || req.body.service;
     const doctorInput = req.body.doctor_id || req.body.doctor;
+    const slotId = req.body.slot_id || req.body.slotId;
     const preferredDate = parseAppointmentDate(
       req.body.preferred_date ||
         req.body.appointment_date ||
@@ -155,6 +163,32 @@ exports.submitAppointment = async (req, res) => {
       return res.status(404).json({ message: "Selected doctor not found" });
     }
 
+    if (!doctorDetails?.doctorId) {
+      return res.status(400).json({
+        message: "Please select a valid doctor for slot booking",
+      });
+    }
+
+    const appointmentDateKey = normalizeDateKey(preferredDate);
+    const selectedSlot = await ensureSlotCanBook({
+      doctorId: doctorDetails.doctorId,
+      date: appointmentDateKey,
+      slotId,
+    });
+    const scheduledAt = buildLocalDate(
+      appointmentDateKey,
+      selectedSlot.startTime,
+    );
+    const paymentRequired =
+      (await isRazorpayConfigured()) &&
+      Number(selectedSlot.appointmentPrice || 0) > 0;
+    const razorpayOrder = paymentRequired
+      ? await createRazorpayOrder({
+          receipt: `appt_${Date.now()}`,
+          amount: selectedSlot.appointmentPrice,
+        })
+      : null;
+
     const appointment = await Appointment.create({
       fullName,
       email,
@@ -163,20 +197,53 @@ exports.submitAppointment = async (req, res) => {
       serviceName: serviceDetails?.serviceName || normalizeText(serviceInput),
       doctorId: doctorDetails?.doctorId || null,
       doctorName: doctorDetails?.doctorName || normalizeText(doctorInput),
-      preferredDate,
-      appointmentDate: preferredDate,
+      preferredDate: scheduledAt,
+      appointmentDate: scheduledAt,
+      slotId: selectedSlot._id,
+      slotType: selectedSlot.slotType,
+      slotLabel:
+        selectedSlot.slotLabel ||
+        `${selectedSlot.startTime} - ${selectedSlot.endTime}`,
       reason,
       notes,
       status: "pending",
+      approvedAt: null,
+      payment: paymentRequired
+        ? {
+            provider: "razorpay",
+            status: "pending",
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            razorpayOrderId: razorpayOrder.order.id,
+          }
+        : {
+            provider: "",
+            status: "not_required",
+            amount: 0,
+            currency: "INR",
+          },
     });
 
     return res.status(201).json({
-      message: "Appointment request submitted successfully",
+      message: paymentRequired
+        ? "Appointment created. Complete payment to confirm your booking."
+        : "Appointment request submitted successfully",
       appointment,
+      paymentRequired,
+      razorpay: paymentRequired
+        ? {
+            key: razorpayOrder.keyId,
+            orderId: razorpayOrder.order.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            name: "Samarpan Hospital",
+            description: "Appointment booking",
+          }
+        : null,
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(400).json({ message: error.message || "Server error" });
   }
 };
 

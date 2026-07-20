@@ -6,6 +6,12 @@ const checkPermission = require("../middleware/checkPermisson");
 const checkAdmin = require("../middleware/checkAdmin");
 const router = express.Router();
 const { getAnalytics } = require("../controllers/analyticsController");
+const {
+  createAppointmentSlot,
+  deleteAppointmentSlot,
+  getAppointmentSlots,
+  updateAppointmentSlot,
+} = require("../controllers/appointmentSettingsController");
 
 const {
   adminLogin,
@@ -171,6 +177,20 @@ router.post(
 router.post("/delete-doctor/:id", verifyToken, checkAdmin, deleteDoctor);
 router.get("/get-appointments", verifyToken, getAppointments);
 router.post("/update-appointment/:id", verifyToken, updateAppointment);
+router.get("/appointment-slots", verifyToken, checkAdmin, getAppointmentSlots);
+router.post("/appointment-slots", verifyToken, checkAdmin, createAppointmentSlot);
+router.post(
+  "/appointment-slots/:id",
+  verifyToken,
+  checkAdmin,
+  updateAppointmentSlot,
+);
+router.post(
+  "/delete-appointment-slot/:id",
+  verifyToken,
+  checkAdmin,
+  deleteAppointmentSlot,
+);
 router.get("/get-dashboard", verifyToken, getDashboard);
 router.get("/get-analytics", verifyToken, getAnalytics);
 router.post(
