@@ -60,6 +60,10 @@ const appointmentSlotSchema = new mongoose.Schema(
             min: 1,
             required: true,
           },
+          isActive: {
+            type: Boolean,
+            default: true,
+          },
         },
       ],
       default: [],
@@ -76,6 +80,10 @@ const appointmentSlotSchema = new mongoose.Schema(
             min: 0,
             max: 6,
             required: true,
+          },
+          isActive: {
+            type: Boolean,
+            default: true,
           },
           timeSlots: {
             type: [
@@ -94,6 +102,10 @@ const appointmentSlotSchema = new mongoose.Schema(
                   type: Number,
                   min: 1,
                   required: true,
+                },
+                isActive: {
+                  type: Boolean,
+                  default: true,
                 },
               },
             ],

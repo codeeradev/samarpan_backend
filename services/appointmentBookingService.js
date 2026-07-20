@@ -97,6 +97,7 @@ const getPayloadTimeSlots = (payload) => {
           endTime: payload.endTime || payload.end_time,
           maximumPatients:
             payload.maximumPatients ?? payload.maximum_patients,
+          isActive: payload.isActive,
         },
       ];
 
@@ -114,7 +115,11 @@ const getPayloadTimeSlots = (payload) => {
       throw new Error("Maximum patients must be at least 1");
     }
 
-    return { startTime, endTime, maximumPatients };
+    const isActive = slot.isActive !== undefined 
+      ? slot.isActive === true || slot.isActive === 'true'
+      : true;
+
+    return { startTime, endTime, maximumPatients, isActive };
   });
 
   return timeSlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -142,10 +147,15 @@ const getPayloadWeeklyDays = (payload) => {
         throw new Error("Weekly slot day must be a valid day of the week");
       }
 
+      const isActive = day.isActive !== undefined 
+        ? day.isActive === true || day.isActive === 'true'
+        : true;
+
       return {
         date: startOfLocalDay(dateKey),
         dateKey,
         weekday,
+        isActive,
         timeSlots: getPayloadTimeSlots(day),
       };
     })
@@ -322,6 +332,22 @@ const updateAppointmentSlot = async (id, payload, userId) => {
     return null;
   }
 
+  // Support partial update for status toggle
+  if (Object.keys(payload).length === 1 && 'isActive' in payload) {
+    return AppointmentSlot.findByIdAndUpdate(
+      id,
+      { 
+        isActive: payload.isActive === true || payload.isActive === 'true',
+        updatedBy: userId || null 
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+  }
+
+  // Full update with validation
   const slotPayload = await buildSlotPayload(payload, userId);
   return AppointmentSlot.findByIdAndUpdate(id, slotPayload, {
     new: true,
@@ -538,6 +564,7 @@ const getStoredTimeSlots = (slot) =>
           startTime: normalizeText(timeSlot.startTime),
           endTime: normalizeText(timeSlot.endTime),
           maximumPatients: Number(timeSlot.maximumPatients || 0),
+          isActive: timeSlot.isActive !== undefined ? timeSlot.isActive : true,
         }))
         .filter(
           (timeSlot) =>
@@ -561,6 +588,7 @@ const getStoredWeeklyDays = (slot) =>
                 : dateKey
                   ? getWeekdayFromDateKey(dateKey)
                   : null,
+            isActive: day.isActive !== undefined ? day.isActive : true,
             timeSlots: getStoredTimeSlots(day),
           };
         })
@@ -613,34 +641,40 @@ const expandSlotByDuration = (slot, selectedDateKey = "") => {
       ? storedWeeklyDays.filter((day) => day.dateKey === selectedDateKey)
       : storedWeeklyDays;
 
-    return matchingDays.flatMap((day) =>
-      day.timeSlots.map((timeSlot) => ({
-        ...slot,
-        _id: `${String(parentSlotId)}__${day.dateKey}__${timeSlot.startTime}`,
-        parentSlotId,
-        date: day.date,
-        dateKey: day.dateKey,
-        weekday: day.weekday,
-        startTime: timeSlot.startTime,
-        endTime: timeSlot.endTime,
-        maximumPatients: timeSlot.maximumPatients,
-        slotLabel: `${timeSlot.startTime} - ${timeSlot.endTime}`,
-      })),
-    );
+    return matchingDays
+      .filter((day) => day.isActive !== false) // Filter inactive days
+      .flatMap((day) =>
+        day.timeSlots
+          .filter((timeSlot) => timeSlot.isActive !== false) // Filter inactive time slots
+          .map((timeSlot) => ({
+            ...slot,
+            _id: `${String(parentSlotId)}__${day.dateKey}__${timeSlot.startTime}`,
+            parentSlotId,
+            date: day.date,
+            dateKey: day.dateKey,
+            weekday: day.weekday,
+            startTime: timeSlot.startTime,
+            endTime: timeSlot.endTime,
+            maximumPatients: timeSlot.maximumPatients,
+            slotLabel: `${timeSlot.startTime} - ${timeSlot.endTime}`,
+          })),
+      );
   }
 
   const storedTimeSlots = getStoredTimeSlots(slot);
   if (storedTimeSlots.length) {
     const parentSlotId = slot.parentSlotId || slot._id;
-    return storedTimeSlots.map((timeSlot) => ({
-      ...slot,
-      _id: `${String(parentSlotId)}__${timeSlot.startTime}`,
-      parentSlotId,
-      startTime: timeSlot.startTime,
-      endTime: timeSlot.endTime,
-      maximumPatients: timeSlot.maximumPatients,
-      slotLabel: `${timeSlot.startTime} - ${timeSlot.endTime}`,
-    }));
+    return storedTimeSlots
+      .filter((timeSlot) => timeSlot.isActive !== false) // Filter inactive time slots
+      .map((timeSlot) => ({
+        ...slot,
+        _id: `${String(parentSlotId)}__${timeSlot.startTime}`,
+        parentSlotId,
+        startTime: timeSlot.startTime,
+        endTime: timeSlot.endTime,
+        maximumPatients: timeSlot.maximumPatients,
+        slotLabel: `${timeSlot.startTime} - ${timeSlot.endTime}`,
+      }));
   }
 
   const duration = Number(slot.slotDurationMinutes || 30);
