@@ -1,4 +1,5 @@
 const metaService = require("../services/metaService");
+const googleService = require("../services/googleSheetService");
 
 const sendError = (res, error) => {
   console.error(error);
@@ -149,7 +150,7 @@ exports.topPosts = async (req, res) => {
 
 exports.leadForms = async (req, res) => {
   try {
-    const forms = await metaService.getLeadForms(req.user._id);
+    const forms = await googleService.getLeadForms(req.user._id);
     return res.status(200).json({ forms });
   } catch (error) {
     return sendError(res, error);
@@ -158,7 +159,7 @@ exports.leadForms = async (req, res) => {
 
 exports.syncLeads = async (req, res) => {
   try {
-    const result = await metaService.syncLeads(req.user._id);
+    const result = await googleService.syncLeads(req.user._id);
     return res
       .status(200)
       .json({ message: "Leads synced successfully", ...result });
