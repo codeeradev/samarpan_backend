@@ -1,7 +1,15 @@
 const MetaLead = require("../models/metaLead");
 
-const SHEET_ID = "1CP5ov3LTIecWtW8SXJWA7rdDrtvlEzulniR7nXgU1fg";
-const SHEET_NAME = "Samarpan_Lead_3D4K_Laparoscopic_Hisar_July"; // change if needed
+const SHEETS = [
+  {
+    id: "1CP5ov3LTIecWtW8SXJWA7rdDrtvlEzulniR7nXgU1fg",
+    name: "Samarpan_Lead_3D4K_Laparoscopic_Hisar_July",
+  },
+  {
+    id: "1fuJ-m5G_STZemiGd8RGN2OsB6k-Wf5j4TIPvpHQvM60",
+    name: "Dr Vishal | Laser Hair Reduction | Leads",
+  },
+];
 
 const getLeadForms = async () => {
   return [
@@ -15,26 +23,31 @@ const getLeadForms = async () => {
 };
 
 const syncLeads = async (adminId) => {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
-    SHEET_NAME
-  )}`;
+  let allRows = [];
 
-  const response = await fetch(url);
+  for (const sheet of SHEETS) {
+    const url = `https://docs.google.com/spreadsheets/d/${sheet.id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet.name)}`;
 
-  if (!response.ok) {
-    throw new Error("Unable to fetch Google Sheet");
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.warn(`Unable to fetch sheet: ${sheet.name}`);
+      continue;
+    }
+
+    const csv = await response.text();
+
+    const rows = csv
+      .split("\n")
+      .map((r) => r.split(",").map((c) => c.replace(/^"|"$/g, "").trim()))
+      .filter((r) => r.length > 5);
+
+    rows.shift(); // Remove header
+
+    allRows.push(...rows);
   }
 
-  const csv = await response.text();
-
-  const rows = csv
-    .split("\n")
-    .map((r) => r.split(",").map((c) => c.replace(/^"|"$/g, "").trim()))
-    .filter((r) => r.length > 5);
-
-  // remove header
-  rows.shift();
-
+  const rows = allRows;
   const operations = rows.map((row) => {
     const lead = {
       adminId,
@@ -104,6 +117,6 @@ const syncLeads = async (adminId) => {
 };
 
 module.exports = {
-getLeadForms,
-syncLeads
-}
+  getLeadForms,
+  syncLeads,
+};
