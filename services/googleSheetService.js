@@ -48,58 +48,72 @@ const syncLeads = async (adminId) => {
       .map((r) => r.split(",").map((c) => c.replace(/^"|"$/g, "").trim()))
       .filter((r) => r.length > 5);
 
-    rows.shift(); // Remove header
+    rows.shift();
 
-    allRows.push(...rows);
+    rows.forEach((row) => allRows.push({ row, sheet: sheet.name }));
   }
 
-  const rows = allRows;
-  const operations = rows.map((row) => {
-    const lead = {
-      adminId,
+  const operations = allRows.map(({ row, sheet }) => {
+    let fullName, phoneNumber, city, status, problem, duration, age;
 
-      leadId: row[0]?.replace("l:", ""),
+    if (sheet === "Dr Vishal | Laser Hair Reduction | Leads") {
+      fullName = row[13];
+      phoneNumber = row[14]?.replace("p:", "");
+      city = row[15];
+      status = row[16] || "CREATED";
 
-      createdTime: new Date(row[1]),
+      problem = row[12]; // face
+      duration = "";
+      age = "";
+    } else {
+      fullName = row[15];
+      phoneNumber = row[16]?.replace("p:", "");
+      city = row[17];
+      status = row[18] || "CREATED";
 
-      formId: row[8]?.replace("f:", ""),
-      formName: row[9],
-
-      pageId: "",
-
-      platform: "Facebook",
-
-      fullName: row[15],
-
-      phoneNumber: row[16]?.replace("p:", ""),
-
-      status: row[18] || "CREATED",
-
-      fieldData: {
-        problem: row[11],
-        duration: row[12],
-        age: row[13],
-        city: row[17],
-
-        adGroupId: row[2]?.replace("ag:", ""),
-        adGroupName: row[3],
-
-        adSetId: row[4]?.replace("as:", ""),
-        adSetName: row[5],
-
-        campaignId: row[6]?.replace("c:", ""),
-        campaignName: row[7],
-      },
-    };
+      problem = row[11];
+      duration = row[12];
+      age = row[13];
+    }
 
     return {
       updateOne: {
         filter: {
           adminId,
-          leadId: lead.leadId,
+          leadId: row[0]?.replace("l:", ""),
         },
         update: {
-          $setOnInsert: lead,
+          $setOnInsert: {
+            adminId,
+            leadId: row[0]?.replace("l:", ""),
+            createdTime: new Date(row[1]),
+
+            formId: row[8]?.replace("f:", ""),
+            formName: row[9],
+
+            pageId: "",
+            platform: "Facebook",
+
+            fullName,
+            phoneNumber,
+            status,
+
+            fieldData: {
+              problem,
+              duration,
+              age,
+              city,
+
+              adGroupId: row[2]?.replace("ag:", ""),
+              adGroupName: row[3],
+
+              adSetId: row[4]?.replace("as:", ""),
+              adSetName: row[5],
+
+              campaignId: row[6]?.replace("c:", ""),
+              campaignName: row[7],
+            },
+          },
         },
         upsert: true,
       },
@@ -118,7 +132,7 @@ const syncLeads = async (adminId) => {
 
   return {
     syncedCount,
-    formsChecked: 1,
+    formsChecked: SHEETS.length,
   };
 };
 
