@@ -19,6 +19,12 @@ const getLeadForms = async () => {
       status: "ACTIVE",
       leadsCount: 0,
     },
+    {
+      formId: "1349761563292989",
+      formName: "Dr Vishal | Laser Hair Reduction | Leads",
+      status: "ACTIVE",
+      leadsCount: 0,
+    },
   ];
 };
 
