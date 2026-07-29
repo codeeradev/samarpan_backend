@@ -36,7 +36,6 @@ const blogSchema = new mongoose.Schema(
     shortDescription: {
       type: String,
       required: true,
-      maxlength: [300, "Short description cannot exceed 300 characters"],
     },
 
     content: {
@@ -94,7 +93,7 @@ blogSchema.pre("save", async function () {
   }
 
   if (!this.seo.metaDescription) {
-    this.seo.metaDescription = this.shortDescription.slice(0, 160);
+    this.seo.metaDescription = this.shortDescription;
   }
 });
 
