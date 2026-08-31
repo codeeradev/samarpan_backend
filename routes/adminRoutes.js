@@ -52,6 +52,10 @@ const {
   updateGallery,
   getAllGallery,
   deleteGallery,
+  addTpa,
+  updateTpa,
+  getAllTpa,
+  deleteTpa,
 
   addCareer,
   getAllCareers,
@@ -297,6 +301,32 @@ router.post(
   verifyToken,
   checkPermission(permisson.MANAGE_GALLERY),
   deleteGallery,
+);
+
+router.post(
+  "/add-tpa",
+  verifyToken,
+  checkPermission(permisson.MANAGE_TPA),
+  upload,
+  addTpa,
+);
+router.post(
+  "/update-tpa/:id",
+  verifyToken,
+  checkPermission(permisson.MANAGE_TPA),
+  updateTpa,
+);
+router.get(
+  "/get-all-tpa",
+  verifyToken,
+  checkPermission(permisson.VIEW_TPA),
+  getAllTpa,
+);
+router.post(
+  "/delete-tpa/:id",
+  verifyToken,
+  checkPermission(permisson.MANAGE_TPA),
+  deleteTpa,
 );
 
 router.post("/add-career", verifyToken, checkAdmin, upload, addCareer);

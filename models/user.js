@@ -39,6 +39,12 @@ const userSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    honors: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Honor",
+      },
+    ],
     isActive: {
       type: Boolean,
       default: true,

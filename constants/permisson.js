@@ -19,6 +19,8 @@ module.exports = {
   VIEW_BLOGS: "view_blogs",
   MANAGE_GALLERY: "manage_gallery",
   VIEW_GALLERY: "view_gallery",
+  MANAGE_TPA: "manage_tpa",
+  VIEW_TPA: "view_tpa",
   VIEW_SETTINGS: "view_settings",
   MANAGE_SETTINGS: "manage_settings",
   VIEW_ADMIN_STAFF: "view_admin_staff",

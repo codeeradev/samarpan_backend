@@ -17,6 +17,7 @@ const {
   getBlogs,
   getBlogCategory,
   getGallery,
+  getTpa,
   getCareers,
   getHonors,
   getContentByModelKey,
@@ -43,6 +44,7 @@ router.get("/get-shorts", getShorts);
 router.get("/get-blogs", getBlogs);
 router.get("/get-blog-category", getBlogCategory);
 router.get("/get-gallery", getGallery);
+router.get("/get-tpa", getTpa);
 router.get("/get-careers", getCareers);
 router.get("/get-honors", getHonors);
 router.get("/get-content/:modelKey", getContentByModelKey);

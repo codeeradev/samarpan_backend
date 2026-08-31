@@ -14,6 +14,7 @@ const Honor = require("../models/honor");
 const ROLES = require("../constants/roles");
 const mongoose = require("mongoose");
 const Gallery = require("../models/gallery");
+const TPA = require("../models/tpa");
 const Procedure = require("../models/cosmeticProcedure");
 const Theme = require("../models/theme");
 const CareerEnquiry = require("../models/jobApplication");
@@ -439,9 +440,16 @@ exports.getDoctors = async (req, res) => {
       status: { $ne: false },
       isActive: { $ne: false },
       specialization: { $exists: true, $ne: "" },
-    }).select(
-      "name image specialization description seo experience qualification expertise isActive createdAt updatedAt",
-    );
+    })
+      .populate({
+        path: "honors",
+        match: { isActive: true },
+        select: "title image sortOrder",
+        options: { sort: { sortOrder: 1, updatedAt: -1, createdAt: -1 } },
+      })
+      .select(
+        "name image specialization description seo experience qualification expertise honors isActive createdAt updatedAt",
+      );
     return res
       .status(200)
       .json({ message: "Doctors retrieved successfully", doctors });
@@ -627,6 +635,20 @@ exports.getGallery = async (req, res) => {
     return res.status(200).json({
       message: "Gallery items retrieved successfully",
       gallery: galleryItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getTpa = async (req, res) => {
+  try {
+    const tpaItems = await TPA.find().select("-__v").sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "TPA items retrieved successfully",
+      tpa: tpaItems,
     });
   } catch (error) {
     console.error(error);

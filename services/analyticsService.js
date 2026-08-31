@@ -1,4 +1,6 @@
-const AnalyticsEvent = require("../models/analyticsEvent");
+const AnalyticsVisitor = require("../models/analyticsVisitor");
+const AnalyticsVisitorDay = require("../models/analyticsVisitorDay");
+const AnalyticsVisitorPage = require("../models/analyticsVisitorPage");
 
 const ANALYTICS_TIMEZONE = process.env.MAIL_TIMEZONE || "Asia/Kolkata";
 
@@ -7,24 +9,7 @@ const normalizeText = (value) =>
 
 const normalizePage = (value) => {
   const page = normalizeText(value);
-
-  if (!page) {
-    return "/";
-  }
-
-  return page.startsWith("/") ? page : `/${page}`;
-};
-
-const getStartOfDay = (base = new Date()) => {
-  const d = new Date(base);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const getEndOfDay = (base = new Date()) => {
-  const d = new Date(base);
-  d.setHours(23, 59, 59, 999);
-  return d;
+  return page ? (page.startsWith("/") ? page : `/${page}`) : "/";
 };
 
 const buildDayKey = (date) =>
@@ -35,40 +20,14 @@ const buildDayKey = (date) =>
     day: "2-digit",
   }).format(date);
 
-const getDateDaysAgo = (base, daysAgo) => {
-  const d = new Date(base);
-  d.setDate(d.getDate() - daysAgo);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const getVisitorStats = async (match = {}) => {
-  const result = await AnalyticsEvent.aggregate([
-    { $match: match },
-    { $group: { _id: "$visitorId", pageViews: { $sum: 1 } } },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: 1 },
-        unique: {
-          $sum: { $cond: [{ $eq: ["$pageViews", 1] }, 1, 0] },
-        },
-        repeated: {
-          $sum: { $cond: [{ $gt: ["$pageViews", 1] }, 1, 0] },
-        },
-      },
-    },
-  ]);
-
-  return result[0] || { total: 0, unique: 0, repeated: 0 };
+const getDayKeyDaysAgo = (base, daysAgo) => {
+  const date = new Date(base);
+  date.setDate(date.getDate() - daysAgo);
+  return buildDayKey(date);
 };
 
 const pageSections = [
-  {
-    key: "blog-categories",
-    title: "Blog Categories",
-    matcher: (page) => page === "/#blog",
-  },
+  { key: "blog-categories", title: "Blog Categories", matcher: (page) => page === "/#blog" },
   {
     key: "blog-listing-pages",
     title: "Blog Listing Pages",
@@ -83,11 +42,7 @@ const pageSections = [
     matcher: (page) => page.split("?")[0].split("#")[0].startsWith("/blogs/"),
   },
   { key: "services", title: "Services", prefix: "/services" },
-  {
-    key: "cosmetic-procedures",
-    title: "Cosmetic Procedures",
-    prefix: "/cosmetic-procedures",
-  },
+  { key: "cosmetic-procedures", title: "Cosmetic Procedures", prefix: "/cosmetic-procedures" },
   { key: "careers", title: "Careers", prefix: "/careers" },
 ];
 
@@ -98,68 +53,67 @@ const getPageSection = (page) => {
   return pageSections.find(
     (section) =>
       (typeof section.matcher === "function" && section.matcher(normalizedPage)) ||
-      (section.prefix &&
-        (cleanPage === section.prefix ||
-          cleanPage.startsWith(`${section.prefix}/`))),
+      (section.prefix && (cleanPage === section.prefix || cleanPage.startsWith(`${section.prefix}/`))),
   );
 };
 
-const buildPageSummaries = (pageStatsRaw) => {
-  const sectionMap = new Map();
+const getRangeVisitorStats = async (startDay, endDay) => {
+  const [result] = await AnalyticsVisitorDay.aggregate([
+    { $match: { day: { $gte: startDay, $lte: endDay } } },
+    { $group: { _id: "$visitorId", pageViews: { $sum: "$pageViews" } } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        unique: { $sum: { $cond: [{ $eq: ["$pageViews", 1] }, 1, 0] } },
+        repeated: { $sum: { $cond: [{ $gt: ["$pageViews", 1] }, 1, 0] } },
+      },
+    },
+  ]).allowDiskUse(true);
+
+  return result || { total: 0, unique: 0, repeated: 0 };
+};
+
+const buildPageSummaries = (pageStatsRaw, sectionStatsRaw) => {
+  const sectionsByKey = new Map(sectionStatsRaw.map((row) => [row._id, row]));
+  const pagesBySection = new Map();
   const directPages = [];
 
   for (const row of pageStatsRaw) {
     const page = normalizePage(row.page);
     const section = getPageSection(page);
-    const pageSummary = {
-      page,
-      pageViews: row.pageViews,
-      visitors: row.visitors,
-    };
+    const pageSummary = { page, pageViews: row.pageViews, visitors: row.visitors };
 
     if (!section) {
       directPages.push(pageSummary);
       continue;
     }
 
-    const existing = sectionMap.get(section.key) || {
-      key: section.key,
-      title: section.title,
-      pageViews: 0,
-      visitorIds: new Set(),
-      pages: [],
-    };
-
-    existing.pageViews += row.pageViews;
-    for (const visitorId of row.visitorIds || []) {
-      existing.visitorIds.add(visitorId);
-    }
-    existing.pages.push(pageSummary);
-    sectionMap.set(section.key, existing);
+    const pages = pagesBySection.get(section.key) || [];
+    pages.push(pageSummary);
+    pagesBySection.set(section.key, pages);
   }
 
-  const pageGroups = Array.from(sectionMap.values()).map((section) => ({
-    key: section.key,
-    title: section.title,
-    pageViews: section.pageViews,
-    visitors: section.visitorIds.size,
-    pages: section.pages.sort((a, b) => {
-      if (b.pageViews !== a.pageViews) return b.pageViews - a.pageViews;
-      return a.page.localeCompare(b.page);
-    }),
-  }));
+  const pageGroups = pageSections
+    .filter((section) => pagesBySection.has(section.key))
+    .map((section) => {
+      const pages = pagesBySection.get(section.key);
+      const stats = sectionsByKey.get(section.key);
+
+      return {
+        key: section.key,
+        title: section.title,
+        pageViews: stats?.pageViews || pages.reduce((sum, row) => sum + row.pageViews, 0),
+        visitors: stats?.visitors || pages.reduce((sum, row) => sum + row.visitors, 0),
+        pages: pages.sort((a, b) => b.pageViews - a.pageViews || a.page.localeCompare(b.page)),
+      };
+    });
 
   return {
     topPages: directPages
-      .sort((a, b) => {
-        if (b.pageViews !== a.pageViews) return b.pageViews - a.pageViews;
-        return a.page.localeCompare(b.page);
-      })
+      .sort((a, b) => b.pageViews - a.pageViews || a.page.localeCompare(b.page))
       .slice(0, 10),
-    pageGroups: pageGroups.sort((a, b) => {
-      if (b.pageViews !== a.pageViews) return b.pageViews - a.pageViews;
-      return a.title.localeCompare(b.title);
-    }),
+    pageGroups: pageGroups.sort((a, b) => b.pageViews - a.pageViews || a.title.localeCompare(b.title)),
   };
 };
 
@@ -173,84 +127,61 @@ const trackPageView = async ({ visitorId, page }) => {
     throw error;
   }
 
-  return AnalyticsEvent.create({
-    visitorId: cleanVisitorId,
-    page: cleanPage,
-  });
+  const now = new Date();
+  const sectionKey = getPageSection(cleanPage)?.key || null;
+  const day = buildDayKey(now);
+
+  // Repeated page visits update counters instead of creating new event documents.
+  await Promise.all([
+    AnalyticsVisitor.updateOne(
+      { visitorId: cleanVisitorId },
+      { $inc: { totalPageViews: 1 }, $set: { lastSeenAt: now }, $setOnInsert: { firstSeenAt: now } },
+      { upsert: true },
+    ),
+    AnalyticsVisitorPage.updateOne(
+      { visitorId: cleanVisitorId, page: cleanPage },
+      {
+        $inc: { pageViews: 1 },
+        $set: { lastSeenAt: now, sectionKey },
+        $setOnInsert: { firstSeenAt: now },
+      },
+      { upsert: true },
+    ),
+    AnalyticsVisitorDay.updateOne(
+      { visitorId: cleanVisitorId, day },
+      { $inc: { pageViews: 1 }, $set: { lastSeenAt: now }, $setOnInsert: { firstSeenAt: now } },
+      { upsert: true },
+    ),
+  ]);
 };
 
 const getAnalyticsDashboard = async () => {
   const now = new Date();
-  const todayStart = getStartOfDay(now);
-  const todayEnd = getEndOfDay(now);
-  const last7Start = getDateDaysAgo(now, 6);
-  const last30Start = getDateDaysAgo(now, 29);
-  const last7Days = Array.from({ length: 7 }, (_, i) =>
-    getDateDaysAgo(now, 6 - i),
-  );
+  const today = buildDayKey(now);
+  const last7Start = getDayKeyDaysAgo(now, 6);
+  const last30Start = getDayKeyDaysAgo(now, 29);
+  const last7Days = Array.from({ length: 7 }, (_, index) => getDayKeyDaysAgo(now, 6 - index));
 
-  const [
-    totalVisitors,
-    todaysVisitors,
-    last7DaysVisitors,
-    last30DaysVisitors,
-    totalPageViews,
-    pageStatsRaw,
-    dailyVisitorsRaw,
-  ] = await Promise.all([
-    getVisitorStats(),
-    getVisitorStats({
-      createdAt: { $gte: todayStart, $lte: todayEnd },
-    }),
-    getVisitorStats({
-      createdAt: { $gte: last7Start, $lte: todayEnd },
-    }),
-    getVisitorStats({
-      createdAt: { $gte: last30Start, $lte: todayEnd },
-    }),
-    AnalyticsEvent.countDocuments({}),
-    AnalyticsEvent.aggregate([
-      {
-        $group: {
-          _id: "$page",
-          pageViews: { $sum: 1 },
-          visitorIds: { $addToSet: "$visitorId" },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          page: "$_id",
-          pageViews: 1,
-          visitorIds: 1,
-          visitors: { $size: "$visitorIds" },
-        },
-      },
-      { $sort: { pageViews: -1, page: 1 } },
-    ]),
-    AnalyticsEvent.aggregate([
-      { $match: { createdAt: { $gte: last7Start, $lte: todayEnd } } },
-      {
-        $group: {
-          _id: {
-            day: {
-              $dateToString: {
-                format: "%Y-%m-%d",
-                date: "$createdAt",
-                timezone: ANALYTICS_TIMEZONE,
-              },
-            },
-            visitorId: "$visitorId",
-          },
-        },
-      },
-      {
-        $group: {
-          _id: "$_id.day",
-          visitors: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
+  const [total, unique, repeated, todaysVisitors, last7DaysVisitors, last30DaysVisitors, totalPageViewsRaw, pageStatsRaw, sectionStatsRaw, dailyVisitorsRaw] = await Promise.all([
+    AnalyticsVisitor.countDocuments(),
+    AnalyticsVisitor.countDocuments({ totalPageViews: 1 }),
+    AnalyticsVisitor.countDocuments({ totalPageViews: { $gt: 1 } }),
+    getRangeVisitorStats(today, today),
+    getRangeVisitorStats(last7Start, today),
+    getRangeVisitorStats(last30Start, today),
+    AnalyticsVisitor.aggregate([{ $group: { _id: null, total: { $sum: "$totalPageViews" } } }]),
+    AnalyticsVisitorPage.aggregate([
+      { $group: { _id: "$page", pageViews: { $sum: "$pageViews" }, visitors: { $sum: 1 } } },
+      { $project: { _id: 0, page: "$_id", pageViews: 1, visitors: 1 } },
+    ]).allowDiskUse(true),
+    AnalyticsVisitorPage.aggregate([
+      { $match: { sectionKey: { $ne: null } } },
+      { $group: { _id: { sectionKey: "$sectionKey", visitorId: "$visitorId" }, pageViews: { $sum: "$pageViews" } } },
+      { $group: { _id: "$_id.sectionKey", pageViews: { $sum: "$pageViews" }, visitors: { $sum: 1 } } },
+    ]).allowDiskUse(true),
+    AnalyticsVisitorDay.aggregate([
+      { $match: { day: { $in: last7Days } } },
+      { $group: { _id: "$day", visitors: { $sum: 1 } } },
     ]),
   ]);
 
@@ -258,29 +189,20 @@ const getAnalyticsDashboard = async () => {
     acc[row._id] = row.visitors;
     return acc;
   }, {});
-  const { topPages, pageGroups } = buildPageSummaries(pageStatsRaw);
+  const { topPages, pageGroups } = buildPageSummaries(pageStatsRaw, sectionStatsRaw);
 
   return {
     totals: {
-      totalVisitors,
+      totalVisitors: { total, unique, repeated },
       todaysVisitors,
       last7DaysVisitors,
       last30DaysVisitors,
-      totalPageViews,
+      totalPageViews: totalPageViewsRaw[0]?.total || 0,
     },
     topPages,
     pageGroups,
-    dailyVisitors: last7Days.map((date) => {
-      const day = buildDayKey(date);
-      return {
-        day,
-        visitors: visitorsByDay[day] || 0,
-      };
-    }),
+    dailyVisitors: last7Days.map((day) => ({ day, visitors: visitorsByDay[day] || 0 })),
   };
 };
 
-module.exports = {
-  getAnalyticsDashboard,
-  trackPageView,
-};
+module.exports = { getAnalyticsDashboard, trackPageView };

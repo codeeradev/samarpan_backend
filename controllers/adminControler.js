@@ -6,6 +6,7 @@ const Short = require("../models/short");
 const BlogCategory = require("../models/blogCategory");
 const Blog = require("../models/blog");
 const Gallery = require("../models/gallery");
+const TPA = require("../models/tpa");
 const Content = require("../models/content");
 const Career = require("../models/career");
 const CareerEnquiry = require("../models/jobApplication");
@@ -16,6 +17,7 @@ const Setting = require("../models/setting");
 const Appointment = require("../models/appointment");
 const Specialization = require("../models/specialization");
 const Honor = require("../models/honor");
+const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const ROLES = require("../constants/roles");
 const permisson = require("../constants/permisson");
@@ -75,6 +77,28 @@ const parseBoolean = (value) => {
   }
 
   return undefined;
+};
+
+const parseHonorIds = (value) => {
+  if (value === undefined) return undefined;
+
+  let ids = value;
+  if (typeof value === "string") {
+    try {
+      ids = JSON.parse(value);
+    } catch {
+      ids = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  if (!Array.isArray(ids)) {
+    ids = [ids];
+  }
+
+  return ids.filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
 };
 
 const normalizePageStatus = (value) => {
@@ -745,6 +769,7 @@ exports.addDoctor = async (req, res) => {
       status,
       isActive,
       seo,
+      honors,
     } = req.body;
 
     const image = req.files?.image?.[0]?.filename
@@ -787,6 +812,7 @@ exports.addDoctor = async (req, res) => {
       experience,
       qualification,
       expertise: expertise ? JSON.parse(expertise) : [],
+      honors: parseHonorIds(honors) ?? [],
       isActive: isActive !== undefined ? isActive : true,
     });
 
@@ -809,6 +835,7 @@ exports.getAllDoctors = async (req, res) => {
   try {
     const doctors = await User.find({ roleId: ROLES.DOCTOR })
       .sort({ createdAt: -1 })
+      .populate("honors", "title image sortOrder isActive")
       .select("-password");
     return res
       .status(200)
@@ -836,6 +863,7 @@ exports.updateDoctor = async (req, res) => {
       status,
       isActive,
       seo,
+      honors,
     } = req.body;
 
     const updateData = {};
@@ -862,6 +890,7 @@ exports.updateDoctor = async (req, res) => {
     if (req.files?.image)
       updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
     if (expertise) updateData.expertise = JSON.parse(expertise);
+    if (honors !== undefined) updateData.honors = parseHonorIds(honors) ?? [];
     if (permissions) updateData.permissions = JSON.parse(permissions);
     if (status !== undefined) updateData.status = status;
     if (isActive !== undefined) updateData.isActive = isActive;
@@ -872,7 +901,9 @@ exports.updateDoctor = async (req, res) => {
       {
         new: true,
       },
-    ).select("-password");
+    )
+      .populate("honors", "title image sortOrder isActive")
+      .select("-password");
 
     if (!doctor) {
       return res.status(404).json({ message: "Doctor not found" });
@@ -2080,6 +2111,87 @@ exports.deleteGallery = async (req, res) => {
 
     return res.status(200).json({
       message: "Gallery image deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.addTpa = async (req, res) => {
+  try {
+    const title = normalizeText(req.body.title);
+    const image = req.files?.image?.[0]?.filename
+      ? `/assets/uploads/${req.files.image[0].filename}`
+      : null;
+
+    if (!image) {
+      return res.status(400).json({ message: "TPA image is required" });
+    }
+
+    const tpaItem = await TPA.create({ title, image });
+
+    return res.status(201).json({
+      message: "TPA item added successfully",
+      tpa: tpaItem,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateTpa = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const title = normalizeText(req.body.title);
+
+    const updatedTpa = await TPA.findByIdAndUpdate(
+      id,
+      { title },
+      { new: true },
+    );
+
+    if (!updatedTpa) {
+      return res.status(404).json({ message: "TPA item not found" });
+    }
+
+    return res.status(200).json({
+      message: "TPA item updated successfully",
+      tpa: updatedTpa,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllTpa = async (req, res) => {
+  try {
+    const tpaItems = await TPA.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "TPA items retrieved successfully",
+      tpa: tpaItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteTpa = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedTpa = await TPA.findByIdAndDelete(id);
+
+    if (!deletedTpa) {
+      return res.status(404).json({ message: "TPA item not found" });
+    }
+
+    return res.status(200).json({
+      message: "TPA item deleted successfully",
     });
   } catch (error) {
     console.error(error);
