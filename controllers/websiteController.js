@@ -29,6 +29,38 @@ const {
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
 
+const CONTENT_MODEL_KEY_ALIASES = {
+  header_logos: "trust_compliance",
+};
+
+const normalizeContentModelKey = (value) => {
+  const modelKey = normalizeText(value).toLowerCase();
+  return CONTENT_MODEL_KEY_ALIASES[modelKey] || modelKey;
+};
+
+const getContentModelKeyAliases = (modelKey) =>
+  modelKey === "trust_compliance"
+    ? ["trust_compliance", "header_logos"]
+    : [modelKey];
+
+const normalizeTrustComplianceContent = (content = {}) => {
+  const normalized = { ...content };
+
+  normalized.haryanaLogo = normalized.haryanaLogo || normalized.mainLogo || "";
+  normalized.haryanaDescription =
+    normalized.haryanaDescription || normalized.mainDescription || "";
+  normalized.nabhLogo = normalized.nabhLogo || normalized.appointmentLogo || "";
+  normalized.nabhDescription =
+    normalized.nabhDescription || normalized.appointmentDescription || "";
+
+  normalized.mainLogo = normalized.haryanaLogo;
+  normalized.mainDescription = normalized.haryanaDescription;
+  normalized.appointmentLogo = normalized.nabhLogo;
+  normalized.appointmentDescription = normalized.nabhDescription;
+
+  return normalized;
+};
+
 const parseAppointmentDate = (value) => {
   if (!value) {
     return null;
@@ -714,19 +746,25 @@ exports.getHonors = async (req, res) => {
 
 exports.getContentByModelKey = async (req, res) => {
   try {
-    const modelKey = normalizeText(req.params.modelKey).toLowerCase();
+    const modelKey = normalizeContentModelKey(req.params.modelKey);
 
     if (!modelKey) {
       return res.status(400).json({ message: "modelKey is required" });
     }
 
     const content = await Content.findOne({
-      modelKey,
+      modelKey: { $in: getContentModelKeyAliases(modelKey) },
       isActive: { $ne: false },
     });
 
     if (!content) {
       return res.status(404).json({ message: "Content not found" });
+    }
+
+    if (modelKey === "trust_compliance") {
+      content.modelKey = "trust_compliance";
+      content.title = content.title || "Trust & Compliance Section";
+      content.content = normalizeTrustComplianceContent(content.content || {});
     }
 
     return res.status(200).json({

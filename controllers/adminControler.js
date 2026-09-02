@@ -61,6 +61,46 @@ const ALLOWED_APPOINTMENT_STATUSES = new Set([
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
 
+const CONTENT_MODEL_KEY_ALIASES = {
+  header_logos: "trust_compliance",
+};
+
+const normalizeContentModelKey = (value) => {
+  const modelKey = normalizeText(value).toLowerCase();
+  return CONTENT_MODEL_KEY_ALIASES[modelKey] || modelKey;
+};
+
+const getContentModelKeyAliases = (modelKey) =>
+  modelKey === "trust_compliance"
+    ? ["trust_compliance", "header_logos"]
+    : [modelKey];
+
+const normalizeTrustComplianceContent = (content = {}) => {
+  const normalized = { ...content };
+
+  normalized.haryanaLogo = normalized.haryanaLogo || normalized.mainLogo || "";
+  normalized.haryanaDescription =
+    normalized.haryanaDescription || normalized.mainDescription || "";
+  normalized.nabhLogo = normalized.nabhLogo || normalized.appointmentLogo || "";
+  normalized.nabhDescription =
+    normalized.nabhDescription || normalized.appointmentDescription || "";
+
+  normalized.mainLogo = normalized.haryanaLogo;
+  normalized.mainDescription = normalized.haryanaDescription;
+  normalized.appointmentLogo = normalized.nabhLogo;
+  normalized.appointmentDescription = normalized.nabhDescription;
+
+  return normalized;
+};
+
+const normalizeContentPayload = (modelKey, content = {}) => {
+  if (modelKey === "trust_compliance") {
+    return normalizeTrustComplianceContent(content);
+  }
+
+  return content;
+};
+
 const normalizePhone = (value) => {
   const digits = String(value || "").replace(/\D/g, "");
   return digits ? Number(digits) : undefined;
@@ -2201,13 +2241,21 @@ exports.deleteTpa = async (req, res) => {
 
 exports.getContentByModelKey = async (req, res) => {
   try {
-    const modelKey = normalizeText(req.params.modelKey).toLowerCase();
+    const modelKey = normalizeContentModelKey(req.params.modelKey);
 
     if (!modelKey) {
       return res.status(400).json({ message: "modelKey is required" });
     }
 
-    const content = await Content.findOne({ modelKey });
+    const content = await Content.findOne({
+      modelKey: { $in: getContentModelKeyAliases(modelKey) },
+    });
+
+    if (content && modelKey === "trust_compliance") {
+      content.modelKey = "trust_compliance";
+      content.title = content.title || "Trust & Compliance Section";
+      content.content = normalizeTrustComplianceContent(content.content || {});
+    }
 
     return res.status(200).json({
       message: "Content retrieved successfully",
@@ -2221,7 +2269,7 @@ exports.getContentByModelKey = async (req, res) => {
 
 exports.upsertContent = async (req, res) => {
   try {
-    const modelKey = normalizeText(req.body.modelKey).toLowerCase();
+    const modelKey = normalizeContentModelKey(req.body.modelKey);
     const title = normalizeText(req.body.title);
     const parsedContent = parseJson(req.body.content);
     const isActive = parseBoolean(req.body.isActive);
@@ -2239,7 +2287,9 @@ exports.upsertContent = async (req, res) => {
       });
     }
 
-    const existingContent = await Content.findOne({ modelKey });
+    const existingContent = await Content.findOne({
+      modelKey: { $in: getContentModelKeyAliases(modelKey) },
+    });
     const baseContent =
       existingContent?.content &&
       typeof existingContent.content === "object" &&
@@ -2247,12 +2297,15 @@ exports.upsertContent = async (req, res) => {
         ? existingContent.content
         : {};
 
-    const mergedContent = mergeUploadedFilesIntoContent(
-      {
-        ...baseContent,
-        ...(parsedContent || {}),
-      },
-      req.files || [],
+    const mergedContent = normalizeContentPayload(
+      modelKey,
+      mergeUploadedFilesIntoContent(
+        {
+          ...baseContent,
+          ...(parsedContent || {}),
+        },
+        req.files || [],
+      ),
     );
 
     const updateData = {
@@ -2268,11 +2321,16 @@ exports.upsertContent = async (req, res) => {
       updateData.isActive = isActive;
     }
 
-    const content = await Content.findOneAndUpdate({ modelKey }, updateData, {
-      new: true,
-      upsert: true,
-      setDefaultsOnInsert: true,
-    });
+    const content = existingContent
+      ? await Content.findByIdAndUpdate(existingContent._id, updateData, {
+          new: true,
+          setDefaultsOnInsert: true,
+        })
+      : await Content.findOneAndUpdate({ modelKey }, updateData, {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true,
+        });
 
     return res.status(200).json({
       message: "Content saved successfully",
