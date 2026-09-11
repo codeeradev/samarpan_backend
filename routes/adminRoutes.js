@@ -107,6 +107,8 @@ const {
   getProcedure,
   getSeoReport,
   syncGoogleReviews,
+  getFeedback,
+  deleteFeedback,
 } = require("../controllers/adminControler");
 
 router.post("/admin-login", adminLogin);
@@ -197,6 +199,8 @@ router.post(
 );
 router.get("/get-dashboard", verifyToken, getDashboard);
 router.get("/get-analytics", verifyToken, getAnalytics);
+router.get("/get-feedback", verifyToken, checkAdmin, getFeedback);
+router.post("/delete-feedback/:id", verifyToken, checkAdmin, deleteFeedback);
 router.post(
   "/add-short",
   verifyToken,

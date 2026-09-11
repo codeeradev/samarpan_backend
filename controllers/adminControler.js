@@ -26,6 +26,7 @@ const Theme = require("../models/theme");
 const Procedure = require("../models/cosmeticProcedure");
 const axios = require("axios");
 const SeoReport = require("../models/seoReport");
+const Feedback = require("../models/feedback");
 const {
   getRelativeTime,
   fetchAllGoogleReviews,
@@ -2077,7 +2078,7 @@ exports.deleteBlog = async (req, res) => {
 
 exports.addGallery = async (req, res) => {
   try {
-    const { caption } = req.body;
+    const { caption, category } = req.body;
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
       : null;
@@ -2086,7 +2087,11 @@ exports.addGallery = async (req, res) => {
       return res.status(400).json({ message: "Gallery image is required" });
     }
 
-    const galleryItem = await Gallery.create({ image, caption });
+    const galleryItem = await Gallery.create({
+      image,
+      caption,
+      category: category || "other",
+    });
 
     return res.status(201).json({
       message: "Gallery image added successfully",
@@ -2101,13 +2106,24 @@ exports.addGallery = async (req, res) => {
 exports.updateGallery = async (req, res) => {
   try {
     const { id } = req.params;
-    const { caption } = req.body;
+    const { caption, category } = req.body;
+
+    const updateData = {};
+
+    if (caption !== undefined) {
+      updateData.caption = caption;
+    }
+
+    if (category !== undefined && category !== null && category !== "") {
+      updateData.category = category;
+    }
 
     const updatedGallery = await Gallery.findByIdAndUpdate(
       id,
-      { caption },
+      { $set: updateData },
       {
         new: true,
+        runValidators: true,
       },
     );
 
@@ -2151,6 +2167,38 @@ exports.deleteGallery = async (req, res) => {
 
     return res.status(200).json({
       message: "Gallery image deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getFeedback = async (req, res) => {
+  try {
+    const feedback = await Feedback.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Feedback retrieved successfully",
+      feedback,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedFeedback = await Feedback.findByIdAndDelete(id);
+
+    if (!deletedFeedback) {
+      return res.status(404).json({ message: "Feedback not found" });
+    }
+
+    return res.status(200).json({
+      message: "Feedback deleted successfully",
     });
   } catch (error) {
     console.error(error);

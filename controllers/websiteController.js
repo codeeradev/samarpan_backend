@@ -19,6 +19,7 @@ const Procedure = require("../models/cosmeticProcedure");
 const Theme = require("../models/theme");
 const CareerEnquiry = require("../models/jobApplication");
 const reviewModel = require("../models/review");
+const Feedback = require("../models/feedback");
 const {
   buildLocalDate,
   createRazorpayOrder,
@@ -28,6 +29,8 @@ const {
 } = require("../services/appointmentBookingService");
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
+
+const normalizeEmail = (value) => normalizeText(value).toLowerCase();
 
 const CONTENT_MODEL_KEY_ALIASES = {
   header_logos: "trust_compliance",
@@ -652,11 +655,10 @@ exports.getBlogs = async (req, res) => {
 exports.getGallery = async (req, res) => {
   try {
     const { type } = req.query;
+    let limit = 0;
 
     if (type === "home") {
       limit = 12;
-    } else {
-      limit = 0;
     }
 
     const galleryItems = await Gallery.find()
@@ -667,6 +669,38 @@ exports.getGallery = async (req, res) => {
     return res.status(200).json({
       message: "Gallery items retrieved successfully",
       gallery: galleryItems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.submitFeedback = async (req, res) => {
+  try {
+    const fullName = normalizeText(req.body.fullName);
+    const contactNumber = normalizeText(req.body.contactNumber);
+    const email = normalizeEmail(req.body.email);
+    const address = normalizeText(req.body.address);
+    const comments = normalizeText(req.body.comments);
+
+    if (!fullName || !contactNumber || !comments) {
+      return res.status(400).json({
+        message: "Full name, contact number and feedback/comments are required",
+      });
+    }
+
+    const feedback = await Feedback.create({
+      fullName,
+      contactNumber,
+      email,
+      address,
+      comments,
+    });
+
+    return res.status(201).json({
+      message: "Feedback submitted successfully",
+      feedback,
     });
   } catch (error) {
     console.error(error);

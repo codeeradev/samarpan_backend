@@ -25,7 +25,8 @@ const {
   getSettings,
   getTheme,
   getActiveProcedure,
-  submitCarrerForm
+  submitCarrerForm,
+  submitFeedback,
 } = require("../controllers/websiteController");
 
 const upload = require("../middleware/multer");
@@ -53,5 +54,6 @@ router.get("/get-settings", getSettings);
 router.get("/get-theme", getTheme);
 router.get("/get-procedure", getActiveProcedure);
 router.post("/submit-career-application", upload, submitCarrerForm);
+router.post("/submit-feedback", submitFeedback);
 
 module.exports = router;
