@@ -6,6 +6,12 @@ const tpaSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    category: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: "tpa",
+    },
     image: {
       type: String,
       required: true,

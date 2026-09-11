@@ -318,6 +318,7 @@ router.post(
   "/update-tpa/:id",
   verifyToken,
   checkPermission(permisson.MANAGE_TPA),
+  upload,
   updateTpa,
 );
 router.get(

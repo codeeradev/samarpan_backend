@@ -2209,6 +2209,7 @@ exports.deleteFeedback = async (req, res) => {
 exports.addTpa = async (req, res) => {
   try {
     const title = normalizeText(req.body.title);
+    const category = normalizeText(req.body.category) || "tpa";
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
       : null;
@@ -2217,7 +2218,7 @@ exports.addTpa = async (req, res) => {
       return res.status(400).json({ message: "TPA image is required" });
     }
 
-    const tpaItem = await TPA.create({ title, image });
+    const tpaItem = await TPA.create({ title, category, image });
 
     return res.status(201).json({
       message: "TPA item added successfully",
@@ -2233,10 +2234,18 @@ exports.updateTpa = async (req, res) => {
   try {
     const { id } = req.params;
     const title = normalizeText(req.body.title);
+    const category = normalizeText(req.body.category) || "tpa";
+
+    const updateData = { title, category };
+
+    // If a new image is uploaded, include it in the update
+    if (req.file) {
+      updateData.image = `/uploads/${req.file.filename}`;
+    }
 
     const updatedTpa = await TPA.findByIdAndUpdate(
       id,
-      { title },
+      updateData,
       { new: true },
     );
 
