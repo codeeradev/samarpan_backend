@@ -12,20 +12,20 @@ const appointmentSlotSchema = new mongoose.Schema(
       trim: true,
       required: true,
     },
-    slotType: {
+    departmentName: {
       type: String,
-      enum: ["daily", "weekly"],
+      trim: true,
       required: true,
     },
-    date: {
-      type: Date,
-      default: null,
-    },
-    weekday: {
-      type: Number,
-      min: 0,
-      max: 6,
-      default: null,
+    weekdays: {
+      type: [Number],
+      required: true,
+      validate: {
+        validator: function(arr) {
+          return arr.length > 0 && arr.every(day => day >= 0 && day <= 6);
+        },
+        message: 'Weekdays must be an array of numbers between 0-6'
+      }
     },
     startTime: {
       type: String,
@@ -37,119 +37,16 @@ const appointmentSlotSchema = new mongoose.Schema(
       trim: true,
       required: true,
     },
-    maximumPatients: {
-      type: Number,
-      min: 1,
-      required: true,
-    },
-    timeSlots: {
-      type: [
-        {
-          startTime: {
-            type: String,
-            trim: true,
-            required: true,
-          },
-          endTime: {
-            type: String,
-            trim: true,
-            required: true,
-          },
-          maximumPatients: {
-            type: Number,
-            min: 1,
-            required: true,
-          },
-          isActive: {
-            type: Boolean,
-            default: true,
-          },
-        },
-      ],
-      default: [],
-    },
-    weeklyDays: {
-      type: [
-        {
-          date: {
-            type: Date,
-            required: true,
-          },
-          weekday: {
-            type: Number,
-            min: 0,
-            max: 6,
-            required: true,
-          },
-          isActive: {
-            type: Boolean,
-            default: true,
-          },
-          timeSlots: {
-            type: [
-              {
-                startTime: {
-                  type: String,
-                  trim: true,
-                  required: true,
-                },
-                endTime: {
-                  type: String,
-                  trim: true,
-                  required: true,
-                },
-                maximumPatients: {
-                  type: Number,
-                  min: 1,
-                  required: true,
-                },
-                isActive: {
-                  type: Boolean,
-                  default: true,
-                },
-              },
-            ],
-            default: [],
-          },
-        },
-      ],
-      default: [],
-    },
-    appointmentPrice: {
-      type: Number,
-      min: 0,
-      default: 0,
-    },
-    slotDurationMinutes: {
-      type: Number,
-      min: 1,
-      default: 30,
-    },
-    bookingCloseMinutesBeforeEnd: {
-      type: Number,
-      min: 0,
-      default: 10,
-    },
     isActive: {
       type: Boolean,
       default: true,
     },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
-      default: null,
-    },
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
-      default: null,
-    },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-appointmentSlotSchema.index({ doctorId: 1, slotType: 1, date: 1 });
-appointmentSlotSchema.index({ doctorId: 1, slotType: 1, weekday: 1 });
-appointmentSlotSchema.index({ doctorId: 1, slotType: 1, "weeklyDays.date": 1 });
+// Indexes
+appointmentSlotSchema.index({ doctorId: 1, departmentName: 1 });
+appointmentSlotSchema.index({ departmentName: 1 });
 
 module.exports = mongoose.model("AppointmentSlot", appointmentSlotSchema);

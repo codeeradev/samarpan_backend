@@ -193,138 +193,56 @@ const findDoctor = async (doctorId) => {
 };
 
 const buildSlotPayload = async (payload, userId) => {
+  // Validate doctor
   const doctor = await findDoctor(payload.doctorId || payload.doctor_id);
   if (!doctor) {
     throw new Error("Selected doctor not found");
   }
 
-  const requestedSlotType = normalizeText(payload.slotType || payload.slot_type)
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-  const slotType =
-    requestedSlotType === "daywise" || requestedSlotType === "daily"
-      ? "daily"
-      : requestedSlotType === "week" || requestedSlotType === "weekly"
-        ? "weekly"
-        : requestedSlotType;
-  if (!["daily", "weekly"].includes(slotType)) {
-    throw new Error("Slot type must be day wise or week");
+  // Validate department
+  const departmentName = normalizeText(payload.departmentName || payload.department_name || "");
+  if (!departmentName) {
+    throw new Error("Department name is required");
   }
 
-  const weeklyDays =
-    slotType === "weekly" ? getPayloadWeeklyDays(payload) : [];
-  const timeSlots = weeklyDays.length
-    ? weeklyDays[0].timeSlots
-    : getPayloadTimeSlots(payload);
-  const allTimeSlots = weeklyDays.length
-    ? weeklyDays.flatMap((day) => day.timeSlots)
-    : timeSlots;
-  const sortedTimeSlots = [...allTimeSlots].sort((a, b) =>
-    a.startTime.localeCompare(b.startTime),
-  );
-  const firstTimeSlot = sortedTimeSlots[0];
-  const lastTimeSlot = sortedTimeSlots[sortedTimeSlots.length - 1];
-  const startTime = firstTimeSlot.startTime;
-  const endTime = lastTimeSlot.endTime;
-  const maximumPatients = allTimeSlots.reduce(
-    (total, slot) => total + Number(slot.maximumPatients || 0),
-    0,
-  );
-
-  const appointmentPrice = Number(
-    payload.appointmentPrice ?? payload.appointment_price ?? 0,
-  );
-  if (Number.isNaN(appointmentPrice) || appointmentPrice < 0) {
-    throw new Error("Appointment price must be 0 or more");
+  // Validate weekday
+  const weekday = Number(payload.weekday);
+  if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+    throw new Error("Weekday must be between 0 (Sunday) and 6 (Saturday)");
   }
 
-  const slotDurationMinutes = Number(
-    payload.slotDurationMinutes ??
-      payload.slot_duration_minutes ??
-      30,
-  );
-  if (!Number.isInteger(slotDurationMinutes) || slotDurationMinutes < 1) {
-    throw new Error("Slot duration must be at least 1 minute");
+  // Validate times
+  const startTime = normalizeText(payload.startTime || payload.start_time || "");
+  const endTime = normalizeText(payload.endTime || payload.end_time || "");
+  
+  if (!TIME_PATTERN.test(startTime)) {
+    throw new Error("Invalid start time format");
   }
-  if (slotDurationMinutes > timeToMinutes(endTime) - timeToMinutes(startTime)) {
-    throw new Error("Slot duration cannot be longer than the slot time range");
+  if (!TIME_PATTERN.test(endTime)) {
+    throw new Error("Invalid end time format");
   }
-
-  const bookingCloseMinutesBeforeEnd = Number(
-    payload.bookingCloseMinutesBeforeEnd ??
-      payload.booking_close_minutes_before_end ??
-      10,
-  );
-  if (
-    !Number.isInteger(bookingCloseMinutesBeforeEnd) ||
-    bookingCloseMinutesBeforeEnd < 0
-  ) {
-    throw new Error("Booking close time must be 0 minutes or more");
-  }
-  if (
-    allTimeSlots.some(
-      (slot) =>
-        bookingCloseMinutesBeforeEnd >
-        timeToMinutes(slot.endTime) - timeToMinutes(slot.startTime),
-    )
-  ) {
-    throw new Error("Booking close time cannot be longer than a slot time range");
+  if (startTime >= endTime) {
+    throw new Error("End time must be after start time");
   }
 
-  const slot = {
+  // Build simple slot
+  return {
     doctorId: doctor._id,
     doctorName: doctor.name,
-    slotType,
+    departmentName,
+    weekday,
     startTime,
     endTime,
-    maximumPatients,
-    timeSlots,
-    weeklyDays,
-    appointmentPrice,
-    slotDurationMinutes,
-    bookingCloseMinutesBeforeEnd,
     isActive:
       payload.isActive !== undefined
         ? payload.isActive === true || payload.isActive === "true"
-        : payload.status
-          ? normalizeText(payload.status).toLowerCase() === "active"
-          : true,
-    updatedBy: userId || null,
+        : true,
   };
-
-  if (slotType === "daily") {
-    const dateKey = normalizeDateKey(payload.date);
-    if (!dateKey) {
-      throw new Error("Date is required for day wise slots");
-    }
-    slot.date = startOfLocalDay(dateKey);
-    slot.weekday = null;
-  } else {
-    const dateKey = weeklyDays[0]?.dateKey || normalizeDateKey(payload.date);
-    if (!dateKey) {
-      throw new Error("Date is required for week slots");
-    }
-    const weekday =
-      weeklyDays[0]?.weekday ??
-      (payload.weekday !== undefined && payload.weekday !== null
-        ? Number(payload.weekday)
-        : getWeekdayFromDateKey(dateKey));
-    if (
-      weekday !== null &&
-      (!Number.isInteger(weekday) || weekday < 0 || weekday > 6)
-    ) {
-      throw new Error("Weekly slot day must be a valid day of the week");
-    }
-    slot.date = startOfLocalDay(dateKey);
-    slot.weekday = weekday;
-  }
-
-  return slot;
 };
 
 const createAppointmentSlot = async (payload, userId) => {
   const slotPayload = await buildSlotPayload(payload, userId);
-  return AppointmentSlot.create({ ...slotPayload, createdBy: userId || null });
+  return AppointmentSlot.create(slotPayload);
 };
 
 const updateAppointmentSlot = async (id, payload, userId) => {
@@ -338,7 +256,6 @@ const updateAppointmentSlot = async (id, payload, userId) => {
       id,
       { 
         isActive: payload.isActive === true || payload.isActive === 'true',
-        updatedBy: userId || null 
       },
       {
         new: true,
@@ -347,7 +264,7 @@ const updateAppointmentSlot = async (id, payload, userId) => {
     );
   }
 
-  // Full update with validation
+  // Full update
   const slotPayload = await buildSlotPayload(payload, userId);
   return AppointmentSlot.findByIdAndUpdate(id, slotPayload, {
     new: true,
