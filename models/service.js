@@ -20,6 +20,11 @@ const serviceSchema = new mongoose.Schema(
     required: true
   },
 
+  sortOrder: {
+    type: Number,
+    default: 0
+  },
+
   image: {
     type: String,
     required: true

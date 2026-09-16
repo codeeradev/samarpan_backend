@@ -318,7 +318,7 @@ exports.getServices = async (req, res) => {
 
     const services = await Service.find(filter)
       .select("-__v -isActive -content -faqs -seo")
-      .sort({ createdAt: -1 });
+      .sort({ sortOrder: 1, updatedAt: -1, createdAt: -1 });
     return res
       .status(200)
       .json({ message: "Services retrieved successfully", services });

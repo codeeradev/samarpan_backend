@@ -458,7 +458,9 @@ exports.adminLogin = async (req, res) => {
 
 exports.addService = async (req, res) => {
   try {
-    const { title, slug, shortDescription, content, faqs, seo } = req.body;
+    const { title, slug, shortDescription, sortOrder, content, faqs, seo } =
+      req.body;
+    const parsedSortOrder = Number.parseInt(sortOrder, 10);
 
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
@@ -472,6 +474,7 @@ exports.addService = async (req, res) => {
       title,
       slug,
       shortDescription,
+      sortOrder: Number.isFinite(parsedSortOrder) ? parsedSortOrder : 0,
       image,
       icon,
       content,
@@ -493,7 +496,11 @@ exports.addService = async (req, res) => {
 
 exports.getAllServices = async (req, res) => {
   try {
-    const services = await Service.find();
+    const services = await Service.find().sort({
+      sortOrder: 1,
+      updatedAt: -1,
+      createdAt: -1,
+    });
     return res
       .status(200)
       .json({ message: "Services retrieved successfully", services });
@@ -506,12 +513,19 @@ exports.getAllServices = async (req, res) => {
 exports.updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, slug, shortDescription, content, faqs, seo } = req.body;
+    const { title, slug, shortDescription, sortOrder, content, faqs, seo } =
+      req.body;
 
     const updateData = {};
     if (title) updateData.title = title;
     if (slug) updateData.slug = slug;
     if (shortDescription) updateData.shortDescription = shortDescription;
+    if (sortOrder !== undefined) {
+      const parsedSortOrder = Number.parseInt(sortOrder, 10);
+      updateData.sortOrder = Number.isFinite(parsedSortOrder)
+        ? parsedSortOrder
+        : 0;
+    }
     if (req.files?.image)
       updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
 
