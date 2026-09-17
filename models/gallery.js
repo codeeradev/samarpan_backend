@@ -12,10 +12,27 @@ const gallerySchema = new mongoose.Schema(
 
     image: {
       type: String,
-      required: true,
+    },
+
+    video: {
+      type: String,
+    },
+
+    mediaType: {
+      type: String,
+      enum: ["image", "video"],
+      default: "image",
     },
   },
   { timestamps: true },
 );
+
+// At least one media field must be present
+gallerySchema.pre("save", function (next) {
+  if (!this.image && !this.video) {
+    return next(new Error("Either image or video must be provided"));
+  }
+  // next();
+});
 
 module.exports = mongoose.model("Gallery", gallerySchema);

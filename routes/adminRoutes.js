@@ -292,6 +292,7 @@ router.post(
   "/update-gallery/:id",
   verifyToken,
   checkPermission(permisson.MANAGE_GALLERY),
+  upload,
   updateGallery,
 );
 router.get(

@@ -2092,23 +2092,40 @@ exports.deleteBlog = async (req, res) => {
 
 exports.addGallery = async (req, res) => {
   try {
-    const { caption, category } = req.body;
+    const { caption, category, mediaType, video } = req.body;
     const image = req.files?.image?.[0]?.filename
       ? `/assets/uploads/${req.files.image[0].filename}`
       : null;
 
+    // If mediaType is video and video URL is provided
+    if (mediaType === "video" && video) {
+      const galleryItem = await Gallery.create({
+        video,
+        caption,
+        category: category || "other",
+        mediaType: "video",
+      });
+
+      return res.status(201).json({
+        message: "Gallery video added successfully",
+        gallery: galleryItem,
+      });
+    }
+
+    // If image is uploaded
     if (!image) {
-      return res.status(400).json({ message: "Gallery image is required" });
+      return res.status(400).json({ message: "Either image file or video URL is required" });
     }
 
     const galleryItem = await Gallery.create({
       image,
       caption,
       category: category || "other",
+      mediaType: mediaType || "image",
     });
 
     return res.status(201).json({
-      message: "Gallery image added successfully",
+      message: "Gallery item added successfully",
       gallery: galleryItem,
     });
   } catch (error) {
@@ -2120,7 +2137,7 @@ exports.addGallery = async (req, res) => {
 exports.updateGallery = async (req, res) => {
   try {
     const { id } = req.params;
-    const { caption, category } = req.body;
+    const { caption, category, mediaType, video } = req.body;
 
     const updateData = {};
 
@@ -2130,6 +2147,23 @@ exports.updateGallery = async (req, res) => {
 
     if (category !== undefined && category !== null && category !== "") {
       updateData.category = category;
+    }
+
+    if (mediaType !== undefined && mediaType !== null && mediaType !== "") {
+      updateData.mediaType = mediaType;
+    }
+
+    // Handle image upload
+    if (req.files?.image?.[0]?.filename) {
+      updateData.image = `/assets/uploads/${req.files.image[0].filename}`;
+      updateData.mediaType = "image";
+    }
+
+    // Handle video URL
+    if (video && typeof video === "string") {
+      updateData.video = video;
+      updateData.mediaType = "video";
+      updateData.image = null; // Clear image if switching to video
     }
 
     const updatedGallery = await Gallery.findByIdAndUpdate(
@@ -2142,11 +2176,11 @@ exports.updateGallery = async (req, res) => {
     );
 
     if (!updatedGallery) {
-      return res.status(404).json({ message: "Gallery image not found" });
+      return res.status(404).json({ message: "Gallery item not found" });
     }
 
     return res.status(200).json({
-      message: "Gallery image updated successfully",
+      message: "Gallery item updated successfully",
       gallery: updatedGallery,
     });
   } catch (error) {
