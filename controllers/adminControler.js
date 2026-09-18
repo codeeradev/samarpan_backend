@@ -85,6 +85,9 @@ const normalizeTrustComplianceContent = (content = {}) => {
   normalized.nabhLogo = normalized.nabhLogo || normalized.appointmentLogo || "";
   normalized.nabhDescription =
     normalized.nabhDescription || normalized.appointmentDescription || "";
+  normalized.healthInsuranceLogo = normalized.healthInsuranceLogo || "";
+  normalized.healthInsuranceDescription =
+    normalized.healthInsuranceDescription || "";
 
   normalized.mainLogo = normalized.haryanaLogo;
   normalized.mainDescription = normalized.haryanaDescription;
