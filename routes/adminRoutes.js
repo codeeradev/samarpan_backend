@@ -7,6 +7,13 @@ const checkAdmin = require("../middleware/checkAdmin");
 const router = express.Router();
 const { getAnalytics } = require("../controllers/analyticsController");
 const {
+  getAppointmentLinks,
+  addAppointmentLink,
+  updateAppointmentLink,
+  deleteAppointmentLink,
+} = require("../controllers/appointmentLinkController");
+
+const {
   createAppointmentSlot,
   deleteAppointmentSlot,
   getAppointmentSlots,
@@ -467,4 +474,10 @@ router.post("/delete-procedure/:id", verifyToken, checkAdmin, deleteProcedure);
 router.get("/get-procedure", verifyToken, checkAdmin, getProcedure);
 router.get("/get-seo-report", getSeoReport);
 router.post("/sync-google-reviews", syncGoogleReviews);
+
+router.get("/get-appointment-links", authMiddleware, getAppointmentLinks);
+router.post("/add-appointment-link", authMiddleware, addAppointmentLink);
+router.post("/update-appointment-link/:id", authMiddleware, updateAppointmentLink);
+router.post("/delete-appointment-link/:id", authMiddleware, deleteAppointmentLink);
+
 module.exports = router;
