@@ -18,7 +18,7 @@ const appointmentLinkSchema = new mongoose.Schema(
     },
     doctorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
+      ref: "user",
       required: true,
     },
     doctorName: {
