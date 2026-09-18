@@ -20,6 +20,7 @@ const Theme = require("../models/theme");
 const CareerEnquiry = require("../models/jobApplication");
 const reviewModel = require("../models/review");
 const Feedback = require("../models/feedback");
+const AppointmentLink = require("../models/appointmentLink");
 const {
   buildLocalDate,
   createRazorpayOrder,
@@ -483,17 +484,44 @@ exports.getDoctors = async (req, res) => {
         path: "honors",
         match: { isActive: true },
         select: "title image sortOrder",
-        options: { sort: { sortOrder: 1, updatedAt: -1, createdAt: -1 } },
+        options: {
+          sort: {
+            sortOrder: 1,
+            updatedAt: -1,
+            createdAt: -1,
+          },
+        },
       })
       .select(
         "name image specialization description seo experience qualification expertise honors isActive createdAt updatedAt",
-      );
-    return res
-      .status(200)
-      .json({ message: "Doctors retrieved successfully", doctors });
+      )
+      .lean();
+
+    // Get all active appointment links
+    const appointmentLinks = await AppointmentLink.find({
+      isActive: true,
+    })
+      .select("title subtitle link doctorId")
+      .lean();
+
+    // Attach appointment links to their respective doctors
+    const doctorsWithAppointments = doctors.map((doctor) => ({
+      ...doctor,
+      appointmentLinks: appointmentLinks.filter(
+        (appointment) =>
+          appointment.doctorId?.toString() === doctor._id.toString(),
+      ),
+    }));
+
+    return res.status(200).json({
+      message: "Doctors retrieved successfully",
+      doctors: doctorsWithAppointments,
+    });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
