@@ -8,6 +8,13 @@ const router = express.Router();
 const { getAnalytics } = require("../controllers/analyticsController");
 
 const {
+  getAppointmentLinks,
+  addAppointmentLink,
+  updateAppointmentLink,
+  deleteAppointmentLink,
+} = require("../controllers/appointmentLinkController");
+
+const {
   createAppointmentSlot,
   deleteAppointmentSlot,
   getAppointmentSlots,
@@ -468,5 +475,10 @@ router.post("/delete-procedure/:id", verifyToken, checkAdmin, deleteProcedure);
 router.get("/get-procedure", verifyToken, checkAdmin, getProcedure);
 router.get("/get-seo-report", getSeoReport);
 router.post("/sync-google-reviews", syncGoogleReviews);
+
+router.get("/get-appointment-links", verifyToken, checkAdmin, getAppointmentLinks);
+router.post("/add-appointment-link", verifyToken, checkAdmin, addAppointmentLink);
+router.post("/update-appointment-link/:id", verifyToken, checkAdmin, updateAppointmentLink);
+router.post("/delete-appointment-link/:id", verifyToken, checkAdmin, deleteAppointmentLink);
 
 module.exports = router;
